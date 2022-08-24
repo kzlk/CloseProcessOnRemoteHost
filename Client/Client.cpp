@@ -83,6 +83,7 @@ auto clientHandler()
 			//receive PID 
 			if (recv(sock, (char*)&PID, sizeof(PID), NULL) == E_RECV_SEND)
 				return error::E_RECV_PID;
+			std::cout << " Server > : received PID " << PID << '\n';
 
 			if (send(sock, header.closeStatus, sizeof(header.closeStatus), NULL) == E_RECV_SEND)
 				return error::E_SEND_H_STATUS;
@@ -93,12 +94,13 @@ auto clientHandler()
 				
 				if (send(sock, (char*)&isSuccess, sizeof(isSuccess), NULL) == E_RECV_SEND)
 					return error::E_SEND_STATUS;
-				std::cout << "Process ...... with PID" << PID << "closed successful" << '\n';
+				std::cout << " > Process ...... with PID " << PID << " closed successful" << '\n';
 
 			}else 
 			{
 				if (send(sock, (char*)&isFailed, sizeof(isFailed), NULL) == E_RECV_SEND)
 					return error::E_SEND_STATUS;
+				std::cout << " > Process ...... with PID " << PID << " close failed" << '\n';
 			}
 				
 

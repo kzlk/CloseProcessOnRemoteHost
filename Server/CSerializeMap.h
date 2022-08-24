@@ -9,7 +9,7 @@
 template<class Key, class Value>
 class serializable_map : public std::map<Key, Value> {
 private:
-    int offset;
+    int offset{};
     std::vector<Key> restore;
 
     template<class T>
@@ -17,10 +17,10 @@ private:
     {
 
         size_t size = str.size();
-        auto a = (char*)(&size);
-        auto b = (char*)(str.data());
-        auto c = sizeof(size);
-        auto d = str.length();
+        //auto a = (char*)(&size);
+       // auto b = (char*)(str.data());
+       // auto c = sizeof(size);
+       // auto d = str.length();
         ss.write((char*)(&size), sizeof(size));
         ss.write((char*)(str.data()), str.length());
     }
@@ -30,10 +30,10 @@ private:
     {
         auto str1 = (std::to_string(str));
         size_t size = str1.size();
-        auto a = (char*)(&size);
-        auto b = (char*)(str1.data());
-        auto c = sizeof(size);
-        auto d = str1.length();
+       // auto a = (char*)(&size);
+      //  auto b = (char*)(str1.data());
+       // auto c = sizeof(size);
+       // auto d = str1.length();
         ss.write((char*)(&size), sizeof(size));
         ss.write((char*)(str1.data()), str1.length());
 
@@ -47,8 +47,8 @@ private:
         std::string str2(buffer.data() + offset, buffer.data() + offset + size);
         str = str2;
         offset += size;
-        std::cout << "\t" << "Value is";
-        std::cout << str << std::endl;
+       //std::cout << "\t" << "Value is";
+       // std::cout << str << std::endl;
     }
 
     template<>
@@ -64,8 +64,8 @@ private:
         str = std::stoi(str1);
         offset += size;
 
-        std::cout << "\t" << "Value is";
-        std::cout << str1 << std::endl;
+       // std::cout << "\t" << "Value is";
+       // std::cout << str1 << std::endl;
     }
 
 public:

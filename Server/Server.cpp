@@ -89,14 +89,14 @@ auto selProcessToClose(const serializable_map<int, std::string>& map)
 	 E_CLOSE_PROC,
 	 E_IS_SUCCESS_CLOSE,
  	 E_IS_FAILED_CLOSE,
-	 E_STATUS_UNKNOWN
-
+	 E_STATUS_UNKNOWN,
+	 E_PID_EMPTY
  };
 
  typedef E_CODE_MESSAGE error;
 
 //TODO: func which start in new thread and recv header from client and do some job
-auto clientHandler(const SOCKET &sock) 
+auto clientHandler(const SOCKET &sock, char* buffer) 
 {
 	char headerBuf[MESSAGE_HEADER_SIZE];
 	ZeroMemory(headerBuf, MESSAGE_HEADER_SIZE); // Windows
@@ -104,69 +104,75 @@ auto clientHandler(const SOCKET &sock)
 	unsigned sizeStreamBytes{};
 	serializable_map<int, std::string> serMap{};
 	std::vector<char> recvDataByte{};
+	static int PID;
+
+	while (true) {
+
+		int isGetListProc = recv(sock, headerBuf, MESSAGE_HEADER_SIZE, NULL);
+		if (isGetListProc == E_RECV_SEND) { return error::E_REC_LIST_PROC; };
 
 
-	//while ()
-
-	int isGetListProc = recv(sock,	headerBuf, MESSAGE_HEADER_SIZE, NULL);
-	if (isGetListProc == E_RECV_SEND) { return error::E_REC_LIST_PROC; };
-
-
-	if (strcmp(headerBuf, header.listProc) == NULL)
-	{
-		// Receive num of bytes in map<> from client
-		int bytesIn = recv(sock, (char*)&sizeStreamBytes, sizeof(sizeStreamBytes), 0);
-		if (bytesIn == E_RECV_SEND) { return error::E_GET_BYTES; };
-
-		//buf to store stream of bytes
-		recvDataByte.resize(sizeStreamBytes);
-
-		//recieve serialized map data
-		int bytesStream = recv(sock, ((char*)recvDataByte.data()), sizeStreamBytes, 0);
-		if (bytesStream == E_RECV_SEND) { return error::E_GET_SER_MAP; };
-
-		//deserialize received map
-		serMap.deserialize(recvDataByte);
-		if (serMap.empty()) { return error::E_MAP_EMPTY;}
-
-		//get PID 
-		auto PID = selProcessToClose(serMap);
-
-		//send header to process close
-		if (send(sock, header.closeProc, sizeof(header.closeProc), NULL) == E_RECV_SEND)
-			return error::E_SEND_H_CLOSE;
-
-		//send PID process to close
-		if (send(sock, (char*)&PID, sizeof(PID), NULL) == E_RECV_SEND)
-			return error::E_SEND_PID;
-
-	}
-	else if(strcmp(headerBuf, header.closeStatus) == NULL)
-	{
-		//receive closing status
-
-		int codeStatus{};
-		int isSuccess = 0;
-		int isFailed = -1;
-
-		int status = recv(sock, (char*)&codeStatus, sizeof(codeStatus), NULL);
-		if(status == E_RECV_SEND)
+		if (strcmp(headerBuf, header.listProc) == NULL)
 		{
-			if(codeStatus == isSuccess) 
-			{
-				return error::E_IS_SUCCESS_CLOSE;
-			}
-			if(codeStatus ==  isFailed)
-			{
-				return error::E_IS_FAILED_CLOSE;
+			// Receive num of bytes in map<> from client
+			int bytesIn = recv(sock, (char*)&sizeStreamBytes, sizeof(sizeStreamBytes), 0);
+			if (bytesIn == E_RECV_SEND) { return error::E_GET_BYTES; };
 
+			//buf to store stream of bytes
+			recvDataByte.resize(sizeStreamBytes);
+
+			//recieve serialized map data
+			int bytesStream = recv(sock, ((char*)recvDataByte.data()), sizeStreamBytes, 0);
+			if (bytesStream == E_RECV_SEND) { return error::E_GET_SER_MAP; };
+
+
+			//deserialize received map
+			serMap.deserialize(recvDataByte);
+			if (serMap.empty()) { return error::E_MAP_EMPTY; }
+
+			std::cout << "> Received list of process from " << buffer << " (SOCKET# " << sock << ")" << '\n';
+
+			//get PID 
+			PID = selProcessToClose(serMap);
+			if (PID == NULL) return error::E_PID_EMPTY;
+
+			//send header to process close
+			if (send(sock, header.closeProc, sizeof(header.closeProc), NULL) == E_RECV_SEND)
+				return error::E_SEND_H_CLOSE;
+
+			//send PID process to close
+			if (send(sock, (char*)&PID, sizeof(PID), NULL) == E_RECV_SEND)
+				return error::E_SEND_PID;
+
+		}
+		else if (strcmp(headerBuf, header.closeStatus) == NULL)
+		{
+			//receive closing status
+
+			int codeStatus{};
+			int isSuccess = 0;
+			int isFailed = -1;
+
+			int status = recv(sock, (char*)&codeStatus, sizeof(codeStatus), NULL);
+			if (status != E_RECV_SEND)
+			{
+				if (codeStatus == isSuccess)
+				{
+					std::cout << "> User: " << buffer << " (SOCKET# " << sock << ")" << "successfully closed process with PID " << PID << '\n';
+					return error::E_IS_SUCCESS_CLOSE;
+				}
+				if (codeStatus == isFailed)
+				{
+					std::cout << "> User: " << buffer << " (SOCKET# " << sock << ")" << "could not closed process with PID " << PID << '\n';
+					return error::E_IS_FAILED_CLOSE;
+
+				}
+				return error::E_STATUS_UNKNOWN;
 			}
-			return error::E_STATUS_UNKNOWN;
+
 		}
 
 	}
-
-	
 
 	//char headerBuffer[20] = "close_proc";
 	//char close_header[20] 
@@ -183,7 +189,11 @@ auto clientHandler(const SOCKET &sock)
 }
 
 //TODO: handle some status and do job 
-auto statusHandler(E_CODE_MESSAGE &err) {};
+auto statusHandler(E_CODE_MESSAGE &err)
+{
+	//switch - case
+
+};
 
 
 void main()
@@ -229,7 +239,11 @@ void main()
 	FD_ZERO(&master);
 
 	FD_SET(listening, &master);
+	char host[NI_MAXHOST];//client's remote name
+	char service[NI_MAXSERV]; //service (i.e. port) the client is connected on
 
+	memset(host, 0, NI_MAXHOST);
+	memset(service, 0, NI_MAXSERV);
 	bool running = true;
 
 	while (running)
@@ -254,11 +268,7 @@ void main()
 				// Add the new connection to the list of connected clients
 				FD_SET(client, &master);
 
-				char host[NI_MAXHOST];//client's remote name
-				char service[NI_MAXSERV]; //service (i.e. port) the client is connected on
-
-				memset(host, 0, NI_MAXHOST);
-				memset(service, 0, NI_MAXSERV);
+				
 
 				if (getnameinfo((sockaddr*)&client_addr, sizeof(client_addr), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
 				{
@@ -276,8 +286,10 @@ void main()
 			}
 			else // It's an inbound message
 			{
-
-				auto stat = clientHandler(sock);
+				//inet_ntop(AF_INET, &client_addr.sin_addr, host, NI_MAXHOST);
+				getnameinfo((sockaddr*)&client_addr, sizeof(client_addr), host, NI_MAXHOST, service, NI_MAXSERV, 0);
+				
+				auto stat = clientHandler(sock, host);
 
 				statusHandler(stat);
 
