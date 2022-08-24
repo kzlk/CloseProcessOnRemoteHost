@@ -3,10 +3,10 @@
 #include <map>
 #include <sstream>
 
+//class for serialize/deserialize map
 template<class Key, class Value>
 class serializable_map : public std::map<Key, Value> {
-	int offset{};
-    std::vector<Key> restore;
+	int offset_{};
 
     template<class T>
     void write(std::stringstream& ss, T& str)
@@ -29,12 +29,11 @@ class serializable_map : public std::map<Key, Value> {
     template<class T>
     void read(std::vector<char>& buffer, T& str)
     {
-
-        size_t size = (int)(*(buffer.data() + offset));
-        offset += sizeof(size_t);
-        std::string str2(buffer.data() + offset, buffer.data() + offset + size);
+	    const size_t size = (int)(*(buffer.data() + offset_));
+        offset_ += sizeof(size_t);
+        std::string str2(buffer.data() + offset_, buffer.data() + offset_ + size);
         str = str2;
-        offset += size;
+        offset_ += size;
     }
 
     template<>
@@ -42,12 +41,12 @@ class serializable_map : public std::map<Key, Value> {
     {
 
         auto str1 = (std::to_string(str));
-        size_t size = (int)(*(buffer.data() + offset));
-        offset += sizeof(size_t);
-        std::string str2(buffer.data() + offset, buffer.data() + offset + size);
+        const size_t size = (int)(*(buffer.data() + offset_));
+        offset_ += sizeof(size_t);
+        const std::string str2(buffer.data() + offset_, buffer.data() + offset_ + size);
         str1 = str2;
         str = std::stoi(str1);
-        offset += size;
+        offset_ += size;
     }
 
 public:
@@ -68,31 +67,26 @@ public:
             ++cnt;
 
         }
-        size_t size = ss.str().size();
+        const size_t size = ss.str().size();
         buffer.resize(size);
         ss.read(buffer.data(), size);
         return buffer;
     }
     void deserialize(std::vector<char>& buffer)
     {
-        offset = 0;
+        offset_ = 0;
         int cnt = 0;
-        while (offset < buffer.size())
+        while (offset_ < buffer.size())
 
         {
-
             Key key{};
             Value value{};
-            auto a = (std::string)TOSTRING(key);
             read(buffer, key);
             read(buffer, value);
             (*this)[key] = value;
             ++cnt;
-
         }
-
     }
-
 };
 
 
