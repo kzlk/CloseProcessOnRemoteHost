@@ -70,20 +70,7 @@ typedef E_CODE_MESSAGE error;
 //TODO: output name of process by received PID
 auto clientHandler()
 {
-	/*
-	char buf[4096];
-	while (true)
-	{
-		memset(buf, 0, 4096);
-		//Wait for response
-		int bytesReceived = recv(sock, buf, 4096, 0);
-		if (bytesReceived > 0)
-		{
-			//Echo response to console
-			std::cout << "SERVER> " << std::string(buf, 0, bytesReceived) << '\n';
-		}
-	}
-	*/
+
 	int PID{};
 	int isSuccess = 0;
 	int isFailed = -1;
