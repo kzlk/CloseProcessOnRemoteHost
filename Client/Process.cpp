@@ -25,11 +25,9 @@ serializable_map<int, std::string> Process::processNamePID()
 		std::string ws(pe32.szExeFile);
 		std::string str(ws.begin(), ws.end());
 
-		//process_name.push_back(str); // add process name to list of processes	
 
 		map.insert(std::pair<int, std::string>(pe32.th32ProcessID, str));
 
-		//std::cout << str << '\n';
 	};
 
 	return map;

@@ -1,29 +1,16 @@
 ﻿#include "Server.h"
 #define MESSAGE_HEADER_SIZE 20
-#define E_RECV_SEND -1
+#define E_RECV_SEND (-1)
 
-//fucn for receive all data over socket
-int recvall(int s, vector<char>& destination, int* len)
-{
-	int total = 0;
-	int bytesleft = *len;
-	int n;
-	while (total < *len) {
-		n = recv(s, (destination.data()) + total, bytesleft, 0);
-		if (n == -1) { break; }
-		total += n;
-		bytesleft -= n;
-	}
-	*len = total;
-	return n == -1 ? -1 : 0;
-}
+//TODO: PORT FOR LINUX
 
-//TODO: make logic which process will be close
+//TODO: logic if it is a system process
 //func to select process will be close
-auto selProcessToClose(const serializable_map<int, std::string>& map)
+auto selProcessToClose(const serializable_map<int, std::string>& map, const std::string& process)
 {
 
 	//TODO: read from file win_sys_proc.txt
+	//TODO: send to client that it is a system process 
 #ifdef _WIN32
 	std::string sysProc[] = { "svchost.exe", "lsass.exe" , "explorer.exe", "sihost.exe",
 		"ntoskrnl.exe", "system",
@@ -31,7 +18,7 @@ auto selProcessToClose(const serializable_map<int, std::string>& map)
 		"winlogon.exe", "csrss.exe" ,
 		"RuntimeBroker.exe", "ApplicationFrameHost.exe",
 		"ctfmon.exe", "SecurityHealthService.exe", "spoolsv.exe" };
-	const std::string process = "chrome.exe"; //hardcode for testing
+	//const std::string process = "chrome.exe"; //hardcode for testing
 #endif
 	//TODO: linux lin_sys_proc.txt
 
@@ -64,8 +51,16 @@ auto selProcessToClose(const serializable_map<int, std::string>& map)
 		if (bufId.size() > 1) { std::advance(it, std::rand() % bufId.size()); return *it; };
 	}
 
-	return 0;
+	return -1; //process is not exist
 };
+
+//TODO: logic if it is a system process 
+auto selProcessToClose(const serializable_map<int, std::string>& map, const int& PID )
+{
+	if (map.find(PID) != map.end())
+		return PID;
+	return -1; // PID in not exist 
+}
 
 //header for message
  struct messageHeader
@@ -73,7 +68,10 @@ auto selProcessToClose(const serializable_map<int, std::string>& map)
 	 char listProc[MESSAGE_HEADER_SIZE]    =  "list_proc";
 	 char closeProc[MESSAGE_HEADER_SIZE]   =  "close_proc";
 	 char closeStatus[MESSAGE_HEADER_SIZE] =  "status";
-
+	 char getListProc[MESSAGE_HEADER_SIZE] =  "get_list_proc";
+	 char getPID[MESSAGE_HEADER_SIZE]      =  "get_pid";
+	 char getName[MESSAGE_HEADER_SIZE]     =  "get_name";
+	 char selProc[MESSAGE_HEADER_SIZE]     = "sel_proc";
 }header;
 
  //TODO: error handler
@@ -90,7 +88,10 @@ auto selProcessToClose(const serializable_map<int, std::string>& map)
 	 E_IS_SUCCESS_CLOSE,
  	 E_IS_FAILED_CLOSE,
 	 E_STATUS_UNKNOWN,
-	 E_PID_EMPTY
+	 E_PID_EMPTY,
+	 E_GET_PID,
+	 E_GET_NAME,
+	 E_GET_H_SEL_PROC
  };
 
  typedef E_CODE_MESSAGE error;
@@ -105,6 +106,10 @@ auto clientHandler(const SOCKET &sock, char* buffer)
 	serializable_map<int, std::string> serMap{};
 	std::vector<char> recvDataByte{};
 	static int PID;
+	char buf[4096];
+	static int getPID{}; //input from user PID
+	static std::string getName{}; //input from user names
+	static bool isPIDSent{};
 
 	while (true) {
 
@@ -132,17 +137,6 @@ auto clientHandler(const SOCKET &sock, char* buffer)
 
 			std::cout << "> Received list of process from " << buffer << " (SOCKET# " << sock << ")" << '\n';
 
-			//get PID 
-			PID = selProcessToClose(serMap);
-			if (PID == NULL) return error::E_PID_EMPTY;
-
-			//send header to process close
-			if (send(sock, header.closeProc, sizeof(header.closeProc), NULL) == E_RECV_SEND)
-				return error::E_SEND_H_CLOSE;
-
-			//send PID process to close
-			if (send(sock, (char*)&PID, sizeof(PID), NULL) == E_RECV_SEND)
-				return error::E_SEND_PID;
 
 		}
 		else if (strcmp(headerBuf, header.closeStatus) == NULL)
@@ -171,12 +165,63 @@ auto clientHandler(const SOCKET &sock, char* buffer)
 			}
 
 		}
+		else if(strcmp(header.getPID, headerBuf) == NULL)
+		{
+			//recieve PID
+			if (recv(sock, (char*)&getPID, sizeof(int), NULL) == E_RECV_SEND)
+			{
+				isPIDSent = true;
+				return error::E_GET_PID;
+			}
+				
+		}
+		else if(strcmp(header.getName, headerBuf) == NULL)
+		{
+			ZeroMemory(buf, 4096);
+			//received name
+			const int bytesReceived = recv(sock, (char*)&buf, 4096, NULL);
+			if ( bytesReceived != E_RECV_SEND)
+			{
+				getName = string(buf, 0, bytesReceived);
+				isPIDSent = false;
+				
+			}else
+			{
+				return error::E_GET_PID;
+			}
+				
+		}else if(strcmp(header.selProc, headerBuf) == NULL)
+		{
+			//sel process to close
+
+			if(isPIDSent)
+			{
+				//return sel proc by PID
+				PID = selProcessToClose(serMap, getPID);
+			}else
+			{
+				//return sel proc by name
+				PID = selProcessToClose(serMap, getName);
+			}
+
+			if (PID == E_RECV_SEND) { return error::E_PID_EMPTY; } //logic if proc not exist
+
+
+			//send header to process close
+			if (send(sock, header.closeProc, sizeof(header.closeProc), NULL) == E_RECV_SEND)
+				return error::E_SEND_H_CLOSE;
+
+			//send PID process to close
+			if (send(sock, (char*)&PID, sizeof(PID), NULL) == E_RECV_SEND)
+				return error::E_SEND_PID;
+
+
+		}
+		//TODO: send that is end of execution
 
 	}
 
-	//char headerBuffer[20] = "close_proc";
-	//char close_header[20] 
-	
+	//TODO: drop client
 	/*
 	if (bytesIn <= 0)
 	{
@@ -192,7 +237,6 @@ auto clientHandler(const SOCKET &sock, char* buffer)
 auto statusHandler(E_CODE_MESSAGE &err)
 {
 	//switch - case
-
 };
 
 
@@ -268,7 +312,6 @@ void main()
 				// Add the new connection to the list of connected clients
 				FD_SET(client, &master);
 
-				
 
 				if (getnameinfo((sockaddr*)&client_addr, sizeof(client_addr), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
 				{
@@ -280,11 +323,10 @@ void main()
 					std::cout << host << " connected on port " << ntohs(client_addr.sin_port) << '\n';
 				}
 
-				// Send a welcome message to the connected client
-				string welcomeMsg = "Message from server!\r\n";
-				//send(client, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
+				//send request to get list of processes from client
+				send(client, header.getListProc, MESSAGE_HEADER_SIZE, NULL);
 			}
-			else // It's an inbound message
+			else // an inbound message
 			{
 				//inet_ntop(AF_INET, &client_addr.sin_addr, host, NI_MAXHOST);
 				getnameinfo((sockaddr*)&client_addr, sizeof(client_addr), host, NI_MAXHOST, service, NI_MAXSERV, 0);
@@ -292,96 +334,19 @@ void main()
 				auto stat = clientHandler(sock, host);
 
 				statusHandler(stat);
-
-				/*
-				char buf[4096];
-				ZeroMemory(buf, 4096);
-				memset(buf, 0, 4096);
-				int len{};
-
-				// Receive num of bytes in map<> from client
-				int bytesIn = recv(sock, (char*)&len, sizeof(len), 0);
-
-				//buf to store stream of bytes
-				std::vector<char> recvDataByte;
-				recvDataByte.resize(len);
-
-				//recieve serialized map data
-				int bytesIn2 = recv(sock, ((char*)recvDataByte.data()), len, 0);
-
-				//deserialize received map
-				serializable_map<int, std::string> serMap;
-				serMap.deserialize(recvDataByte);
-
-				//get PID 
-				auto PID = selProcessToClose(serMap);
-
-				char headerBuffer[20] = "close_proc";
-				//char close_header[20] 
-				if (send(sock, headerBuffer, sizeof(headerBuffer), NULL));
-
-				if (send(sock, (char*)&PID, sizeof(PID), NULL) == -1)
-					std::cerr << "SEND PID TO CLIENT " << sock << " FAILED" << '\n';
-				/*
-				////////////////////////
-				if (bytesIn <= 0)
-				{
-					// Drop the client
-					closesocket(sock);
-					FD_CLR(sock, &master);
-				}
-				else
-				{
-
-					if (buf[0] == '\\')
-					{
-						string cmd = string(buf, bytesIn);
-						if (cmd == "\\quit")
-						{
-							running = false;
-							break;
-						}
-
-						// Unknown command
-						continue;
-					}
-					//To communicate with other client
-					//*********************
-					for (int i = 0; i < master.fd_count; i++)
-					{
-						SOCKET outSock = master.fd_array[i];
-						if (outSock != listening && outSock == sock)
-						{
-							ostringstream ss;
-							ss << "SOCKET #" << sock << ": " << buf << "\r\n";
-							string strOut = ss.str();
-							//if(sock == master.fd_array[i])
-							send(outSock, strOut.c_str(), strOut.size() + 1, 0);
-						}
-					}
-					//**************************
-
-				}
-				*/
-				///////////////////////////
 			}
 		}
 	}
 
-
 	FD_CLR(listening, &master);
 	closesocket(listening);
-
 
 	string msg = "Server is shutting down. Goodbye\r\n";
 
 	while (master.fd_count > 0)
 	{
-
 		SOCKET sock = master.fd_array[0];
-
 		send(sock, msg.c_str(), msg.size() + 1, 0);
-
 		FD_CLR(sock, &master);
 		closesocket(sock);
 	}
@@ -390,5 +355,4 @@ void main()
 	WSACleanup();
 
 	//system("pause");
-	
 }

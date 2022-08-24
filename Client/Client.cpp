@@ -1,32 +1,45 @@
 ﻿#include "Client.h"
 #include "CSerializeMap.h"
 #include "Process.h"
+//TODO: PORT FOR LINUX
 
 #define MESSAGE_HEADER_SIZE 20
-#define E_RECV_SEND -1
-#define HEADER 20
+#define E_RECV_SEND (-1)
 using namespace std;
-
-// TODO: (22.08.2022) 
-// push commit to github
-// creaet
-
 
 SOCKET sock;
 Process proc;
 
+//send all data 
+int sendall(const int s, const vector<char>& buf, int* len)
+{
+	int total = 0; // how many bytes did we send
+	int bytesleft = *len; // how many bytes are left to send
+	int n = 0;
+	while (total < *len) {
+		n = send(s, buf.data() + total, bytesleft, 0);
+		if (n == -1) { break; }
+		total += n;
+		bytesleft -= n;
+	}
+	*len = total; // here is the number of bytes actually sent
+	return n == -1 ? -1 : 0; //  -1 when error, 0 when success
+}
 
+//header for message
 struct messageHeader
 {
-	char listProc[MESSAGE_HEADER_SIZE] = "list_proc";
-	char closeProc[MESSAGE_HEADER_SIZE] = "close_proc";
+	char listProc[MESSAGE_HEADER_SIZE]    = "list_proc";
+	char closeProc[MESSAGE_HEADER_SIZE]   = "close_proc";
 	char closeStatus[MESSAGE_HEADER_SIZE] = "status";
-
+	char getListProc[MESSAGE_HEADER_SIZE] = "get_list_proc";
+	char getPID[MESSAGE_HEADER_SIZE]      = "get_pid";
+	char getName[MESSAGE_HEADER_SIZE]     = "get_name";
+	char selProc[MESSAGE_HEADER_SIZE]     = "sel_proc";
 
 }header;
 
-
-
+//TODO: make class for error handling
 //TODO: enum for status of closing process
 enum class E_CODE_MESSAGE
 {
@@ -39,16 +52,22 @@ enum class E_CODE_MESSAGE
 	E_SEND_STATUS,
 	E_RECV_PID,
 	E_H_CLOSE_PROC,
-	E_CLOSE_PROC
-
+	E_CLOSE_PROC,
+	E_GET_WIN_PROC,
+	E_SEND_H_LIST,
+	E_SIZE_MAP,
+	E_SEND_MAP, 
+	E_SEND_H_PID,
+	E_SEND_H_NAME, 
+	E_SEND_PID,
+	E_SEND_NAME
 };
 
 typedef E_CODE_MESSAGE error;
-//handling all receiveing message in new thread
 
-
-
-
+//handle receiving message
+//TODO: exit from cycle
+//TODO: output name of process by received PID
 auto clientHandler()
 {
 	/*
@@ -78,6 +97,7 @@ auto clientHandler()
 		if (recv(sock, headerBuf, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
 			return error::E_H_CLOSE_PROC;
 
+		//received header to close process
 		if (strcmp(header.closeProc, headerBuf) == NULL)
 		{
 			//receive PID 
@@ -85,53 +105,181 @@ auto clientHandler()
 				return error::E_RECV_PID;
 			std::cout << " Server > : received PID " << PID << '\n';
 
+			//send closestatus header 
 			if (send(sock, header.closeStatus, sizeof(header.closeStatus), NULL) == E_RECV_SEND)
 				return error::E_SEND_H_STATUS;
 
 			//close process
 			if (proc.closeProcessByPID(PID) != NULL)
 			{
-				
+				//send status is success
 				if (send(sock, (char*)&isSuccess, sizeof(isSuccess), NULL) == E_RECV_SEND)
 					return error::E_SEND_STATUS;
 				std::cout << " > Process ...... with PID " << PID << " closed successful" << '\n';
 
 			}else 
 			{
+				//send status is failure
 				if (send(sock, (char*)&isFailed, sizeof(isFailed), NULL) == E_RECV_SEND)
 					return error::E_SEND_STATUS;
 				std::cout << " > Process ...... with PID " << PID << " close failed" << '\n';
 			}
-				
-
-
-			//TODO: send message to server 
-		}
-		else {
 
 		}
+		else if (strcmp(header.getListProc, headerBuf) == NULL) 
+		{
+#ifdef _WIN32
+			auto serMap = proc.processNamePID();
+			if (serMap.empty()) { return error::E_GET_WIN_PROC;}
+#endif //
+			//TODO: friendly user console interface
 
+			std::vector<char> byteStream = serMap.serialize();
+			//serializable_map<int, std::string> serMap2;
+			//serMap2.deserialize(byteStream);
+			int len = byteStream.size();
+
+			//send header list of processes
+			int sendHeaderFor = send(sock, header.listProc, MESSAGE_HEADER_SIZE, NULL);
+			if (sendHeaderFor == E_RECV_SEND) { return error::E_SEND_H_LIST; }
+
+			//send to server size of map(processes list)
+			int sendSize = send(sock, (char*)&len, sizeof(int), NULL); //
+			if (sendSize == -1) {  return error::E_SIZE_MAP; }
+
+			//send serialized map to server
+			if (sendall(sock, byteStream, &len) == E_RECV_SEND)
+			{
+				std::cout << "Serialized map --> " << len << " bytes sent" << '\n';
+				return error::E_SEND_MAP;
+			}
+
+			//enter PID or name of process
+			int choice {};
+			int enterPID{};
+			string enterName{};
+			std::cout << "How do you want to close the process?" << '\n';
+			std::cout << "1) By PID : enter -> 1 \n2) By name : enter -> 2\n3) Exit: enter -> 3\n";
+			
+			while (choice != 2 && choice != 1)
+			{
+				std::cin >> choice;
+				switch (choice)
+				{
+				case 1:
+					std::cout << "Please enter process' PID: ";
+					std::cin >> enterPID;
+
+					//send header that we enter PID
+					if (send(sock, header.getPID, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
+						return error::E_SEND_H_PID;
+
+					//send input PID
+					if (send(sock, (char*)&enterPID, sizeof(int), NULL) == E_RECV_SEND)
+						return error::E_SEND_PID;
+
+					//do some job
+					break;
+				case 2:
+					std::cout << "Please enter process' name : ";
+					std::cin >> enterName;
+
+					//send header that we enter NAME
+					if (send(sock, header.getName, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
+						return error::E_SEND_H_PID;
+
+					//send input NAME
+					if (send(sock, enterName.c_str(), enterName.size() + 1, NULL) == E_RECV_SEND)
+						return error::E_SEND_PID;
+
+					//do some job
+					break;
+				default:
+					std::cout << "Wrong input! Please try again!\n Enter your choice ";
+					break;
+				}
+			}
+
+			//send header to select process
+			if (send(sock, header.selProc, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
+				return error::E_SEND_H_PID;
+			
+		}
 
 	}
 
 }
 
-//send all data 
-int sendall(int s, vector<char> buf, int* len)
+//handle 
+auto statusHandler(const E_CODE_MESSAGE& err)
 {
-	int total = 0; // сколько байт мы послали
-	int bytesleft = *len; // сколько байт осталось послать
-	int n;
-	while (total < *len) {
-		n = send(s, buf.data() + total, bytesleft, 0);
-		if (n == -1) { break; }
-		total += n;
-		bytesleft -= n;
-	}
-	*len = total; // здесь количество действительно посланных байт
-	return n == -1 ? -1 : 0; // вернуть -1 при сбое, 0 при успехе
-}
+	switch(err)
+	{
+	case error::E_CLOSED_SUCCES :
 
+		
+		break;
+
+	case error::E_CLOSE_PROC:
+
+
+		break;
+
+	case error::E_GET_BYTES:
+
+		break;
+
+	case error::E_GET_SER_MAP:
+
+		break;
+
+	case error::E_H_CLOSE_PROC:
+
+
+		break;
+
+	case error::E_MAP_EMPTY:
+
+
+		break;
+
+	case error::E_RECV_PID:
+
+		break;
+
+	case error::E_REC_LIST_PROC:
+
+
+		break;
+	case error::E_SEND_H_STATUS:
+
+
+		break;
+	case error::E_SEND_STATUS:
+
+		break;
+
+	case error::E_GET_WIN_PROC:
+		std::cerr << "Could not get Windows processes " << '\n';
+		break;
+
+	case error::E_SEND_H_LIST:
+		std::cerr << "Error in sending header for list process" << '\n';
+		break;
+
+	case error::E_SIZE_MAP:
+		std::cerr << "Cannot send size of map" << '\n';
+		break;
+
+	case error::E_SEND_MAP:
+		std::cerr << "Cannot send serialized map" << '\n';
+		break;
+	}
+
+	
+		
+	return 0;
+}
 
 int main()
 {
@@ -191,48 +339,22 @@ int main()
 	}
 	std::cout << "You successfully connect to server!" << '\n';
 
-	//do-wile loop to send and receive data
-
 	char buf[4096];
 	std::string userInput;
-	//Process process; // Class Process for process manupulation
 
 	//std::thread thread(clientHandler); // thread to start clientHandler in new thread 
-
 	//CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)clientHandler, NULL, NULL, NULL);
-	int j = 1;
-	std::string msg1;
+
+	bool isRepeat = true;
+	
+	std::string msg1{};
+
+	//TODO: exit from cycle
+
 	do
 	{
 
-#ifdef _WIN32
-		auto serMap = proc.processNamePID();
-		if (serMap.empty()) {std::cerr << "Could not get Windows processes " << '\n'; return 0;}
-#endif //
-		//TODO: friendly user console interface
-
-		std::vector<char> byteStream = serMap.serialize();
-		//serializable_map<int, std::string> serMap2;
-		//serMap2.deserialize(byteStream);
-
-		int len = byteStream.size();
-
-		//send header list of processes
-		int sendHeaderFor = send(sock, header.listProc, MESSAGE_HEADER_SIZE, NULL);
-		if (sendHeaderFor == E_RECV_SEND) { std::cerr << "Error in sending header for list process" << '\n'; return 0; }
-
-		//SEND TO SERVER SIZE OF MAP
-		int sendSize = send(sock, (char*)&len, sizeof(int), NULL); //
-		if (sendSize == -1) { std::cerr << ("Cannot send size of map") << '\n'; return 0; };
-
-
-		if (sendall(sock, byteStream, &len) == -E_RECV_SEND)
-		{
-			std::cerr << ("Cannot send serialized map") << '\n';
-			std::cout << len << " bytes sent" << '\n';
-			exit(1);
-		}
-
+		//handle receiving messages
 		auto response = clientHandler();
 		/* 1) function to response to received header
 		 * 2) func return status
@@ -241,42 +363,26 @@ int main()
 		 *
 		 *
 		 *
-		 *
+		 *if(response == 1 ) then while loop else stop while loop
 		 *
 		 */
 
-
+		const auto handle = statusHandler(response);
+		if(handle == 1)
+		{
+			// repeat = true
+		}
+		else
+		{
+			//repeat = false
+		}
 
 		//quit
 
-
-		/*if (sendSize2 == -1)
-		{
-			memset(buf, 0, 4096);
-			//Wait for response
-			int bytesReceived = recv(sock, buf, 4096, 0);
-			if(bytesReceived > 0)
-			{
-				//Echo response to console
-				std::cout << "SERVER> " << std::string(buf, 0, bytesReceived) << '\n';
-			}
-
-
-			perror("sendall");
-			printf("We only sent %d bytes because of the error!\n", len);
-
-			//}
-
-		//}
-		}
-	*/
-
-
 		system("pause"); // wait for user response
 
-	} while (true);
+	} while (isRepeat);
 	//thread.join();
-
 
 	//gracefully close down everything
 	closesocket(sock);
