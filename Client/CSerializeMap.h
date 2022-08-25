@@ -16,7 +16,7 @@ class serializable_map : public std::map<Key, Value> {
         ss.write((char*)(str.data()), str.length());
     }
 
-    template<>
+  //  template<>
     void write(std::stringstream& ss, int& str)
     {
         auto str1 = (std::to_string(str));
@@ -36,7 +36,7 @@ class serializable_map : public std::map<Key, Value> {
         offset_ += size;
     }
 
-    template<>
+   // template<>
     void read(std::vector<char>& buffer, int& str)
     {
 

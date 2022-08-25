@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include <vector>
 #include <map>
@@ -7,7 +8,7 @@
 template<class Key, class Value>
 class serializable_map : public std::map<Key, Value> {
 private:
-    int offset{};
+    int offset_{};
 
     template<class T>
     void write(std::stringstream& ss, T& str)
@@ -17,7 +18,7 @@ private:
         ss.write((char*)(str.data()), str.length());
     }
 
-    template<>
+    //template<>
     void write(std::stringstream& ss, int& str)
     {
         auto str1 = (std::to_string(str));
@@ -30,25 +31,25 @@ private:
     template<class T>
     void read(std::vector<char>& buffer, T& str)
     {
-        size_t size = (int)(*(buffer.data() + offset));
-        offset += sizeof(size_t);
-        std::string str2(buffer.data() + offset, buffer.data() + offset + size);
+        size_t size = (int)(*(buffer.data() + offset_));
+        offset_ += sizeof(size_t);
+        std::string str2(buffer.data() + offset_, buffer.data() + offset_ + size);
         str = str2;
-        offset += size;
+        offset_ += size;
     }
 
-    template<>
+   // template<>
     void read(std::vector<char>& buffer, int& str)
     {
 
         auto str1 = (std::to_string(str));
 
-        const size_t size = (int)(*(buffer.data() + offset));
-        offset += sizeof(size_t);
-        const std::string str2(buffer.data() + offset, buffer.data() + offset + size);
+        const size_t size = (int)(*(buffer.data() + offset_));
+        offset_ += sizeof(size_t);
+        const std::string str2(buffer.data() + offset_, buffer.data() + offset_ + size);
         str1 = str2;
         str = std::stoi(str1);
-        offset += size;
+        offset_ += size;
     }
 
 public:
@@ -76,9 +77,9 @@ public:
     }
     void deserialize(std::vector<char>& buffer)
     {
-        offset = 0;
+        offset_ = 0;
         int cnt = 0;
-        while (offset < buffer.size())
+        while (offset_ < buffer.size())
         {
             Key key{};
             Value value{};
