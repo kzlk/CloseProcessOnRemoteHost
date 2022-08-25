@@ -1,4 +1,5 @@
 ﻿#include "Server.h"
+#include "CSerializeMap.h"
 #define MESSAGE_HEADER_SIZE 20
 #define E_RECV_SEND (-1)
 
@@ -240,9 +241,21 @@ auto statusHandler(E_CODE_MESSAGE &err)
 };
 
 
-void main()
+int main()
 {
-#ifdef _WIN32
+
+#ifdef __linux__
+
+	// Create a socket
+	int listening = socket(AF_INET, SOCK_STREAM, 0);
+	if (listening == -1)
+	{
+		std::cerr << "Can't create a socket on Linux! Quitting" << '\n';
+		return 0;
+	}
+
+#elif defined _WIN32
+
 	// Initialze winsock
 	WSADATA wsData;
 	WORD ver = MAKEWORD(2, 2);
@@ -250,8 +263,8 @@ void main()
 	int wsOk = WSAStartup(ver, &wsData);
 	if (wsOk != 0)
 	{
-		cerr << "Can't Initialize winsock! Quitting" << endl;
-		return;
+		std::cerr << "Can't Initialize WinSock! Quitting" << '\n';
+		return 0;
 	}
 
 	// Create a socket
@@ -259,15 +272,23 @@ void main()
 	if (listening == INVALID_SOCKET)
 	{
 		cerr << "Can't create a socket! Quitting" << endl;
-		return;
+		return 0;
 	}
-#endif;
+
+#else
+#	error "Unknown compiler"
+#endif
+
 
 	// Bind the ip address and port to a socket
 	sockaddr_in hint{};
 	hint.sin_family = AF_INET;
 	hint.sin_port = htons(54000);
+#ifdef _WIN32
 	hint.sin_addr.S_un.S_addr = INADDR_ANY;
+#elif defined(__linux__)
+	hint.sin_addr.s_addr = INADDR_ANY;
+#endif
 
 	bind(listening, (sockaddr*)&hint, sizeof(hint));
 
@@ -275,7 +296,7 @@ void main()
 	listen(listening, SOMAXCONN);
 
 	//wait for a connection 
-	sockaddr_in client_addr;
+	sockaddr_in client_addr{};
 	int clientSize = sizeof(client_addr);
 
 	// Create the master file descriptor set and zero it
@@ -283,8 +304,8 @@ void main()
 	FD_ZERO(&master);
 
 	FD_SET(listening, &master);
-	char host[NI_MAXHOST];//client's remote name
-	char service[NI_MAXSERV]; //service (i.e. port) the client is connected on
+	char host[NI_MAXHOST];	//client's remote name
+	char service[NI_MAXSERV];	//service (i.e. port) the client is connected on
 
 	memset(host, 0, NI_MAXHOST);
 	memset(service, 0, NI_MAXSERV);
@@ -306,12 +327,16 @@ void main()
 
 			if (sock == listening)
 			{
+#ifdef _WIN32
 				// Accept a new connection
 				SOCKET client = accept(listening, (sockaddr*)&client_addr, &clientSize);
+#elif defined(__linux__) 
+				int client = accept(listening, (sockaddr*)&client_addr, &clientSize);
+#else
+#endif
 
 				// Add the new connection to the list of connected clients
 				FD_SET(client, &master);
-
 
 				if (getnameinfo((sockaddr*)&client_addr, sizeof(client_addr), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
 				{
@@ -324,7 +349,11 @@ void main()
 				}
 
 				//send request to get list of processes from client
-				send(client, header.getListProc, MESSAGE_HEADER_SIZE, NULL);
+				if (send(client, header.getListProc, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
+				{
+					std::cerr << "Error in sending request to get list of processes from client"<< '\n';
+				}
+					
 			}
 			else // an inbound message
 			{
@@ -339,20 +368,41 @@ void main()
 	}
 
 	FD_CLR(listening, &master);
-	closesocket(listening);
 
-	string msg = "Server is shutting down. Goodbye\r\n";
+	//TODO: close server
+#ifdef _WIN32
+	closesocket(listening);
+#elif defined(__linux__) 
+	close(listening);
+#else
+#endif
+
+
+	const string msg = "Server is shutting down. Goodbye\r\n";
 
 	while (master.fd_count > 0)
 	{
 		SOCKET sock = master.fd_array[0];
 		send(sock, msg.c_str(), msg.size() + 1, 0);
 		FD_CLR(sock, &master);
+#ifdef _WIN32
 		closesocket(sock);
+#elif defined(__linux__) 
+		close(sock);
+#else
+#endif
 	}
 
+
+#ifdef __linux__
+	(void)getchar();
+#elif defined(_WIN32)
 	// Cleanup winsock
 	WSACleanup();
 
-	//system("pause");
+	system("pause");
+#else
+#endif
+
+	return 0;
 }

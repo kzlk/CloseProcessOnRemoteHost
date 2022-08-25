@@ -284,7 +284,7 @@ int main()
 	std::cin >> port;
 
 	//initialize winsock
-
+#ifdef _WIN32
 	WSAData wsaData;
 	WORD DLLVersion = MAKEWORD(2, 1);
 	if (WSAStartup(DLLVersion, &wsaData) != 0)
@@ -303,8 +303,23 @@ int main()
 	{
 		std::cerr << "Cannot create a socket! Errror #" << WSAGetLastError() << '\n';
 		WSACleanup();
-		exit(1);
+		return 0;
 	}
+
+#elif defined(__linux)
+
+	int sock = socket(AF_INET, SOCK_STREAM, NULL);
+	if (sock == -1)
+	{
+		std::cerr << "Cannot create a socket! << '\n';
+		return 1;
+	}
+
+#else
+#endif
+	
+
+	
 
 	//fill in a hint structure
 
@@ -319,10 +334,17 @@ int main()
 
 	if (connResult == SOCKET_ERROR)
 	{
+#ifdef _WIN32
 		std::cerr << "Can't connect to server, Err # " << WSAGetLastError() << '\n';
 		closesocket(sock);
 		WSACleanup();
-		exit(1);
+#elif defined (__linux__)
+		std::cerr << "Can't connect to server<" << '\n';
+		close(sock);
+#else
+#endif
+
+		return 0;
 	}
 	std::cout << "You successfully connect to server!" << '\n';
 
@@ -366,15 +388,22 @@ int main()
 
 		//quit
 
-		system("pause"); // wait for user response
+		isRepeat = false;
 
 	} while (isRepeat);
 	//thread.join();
 
 	//gracefully close down everything
+
+#ifdef _WIN32
 	closesocket(sock);
 	WSACleanup();
-
+	system("pause");
+#elif defined (__linux__)
+	close(sock);
+	(void)getchar();
+#else
+#endif
 
 	return 0;
 }
