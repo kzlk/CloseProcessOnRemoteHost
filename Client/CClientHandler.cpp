@@ -5,8 +5,12 @@ int CClientHandler::iDisconect(const SOCKET& sock)
 	return send(sock, header.disconnect, MESSAGE_HEADER_SIZE, NULL);
 }
 
+//handle receiving message
+//TODO: exit from cycle
+//TODO: output name of process by received PID
 E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 {
+
 	int PID{};
 	int isSuccess = 0;
 	int isFailed = -1;
@@ -135,10 +139,11 @@ E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 			//send header to select process
 			if (send(sock, header.selProc, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
 				return msg::E_SEND_H_PID;
-			std::cout << "frow send header to select \n";
+
 		}
 
 	}
+
 }
 
 int CClientHandler::sendall( int s, const std::vector<char>& buf, int* len)

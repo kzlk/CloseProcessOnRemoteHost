@@ -304,7 +304,7 @@
 //	WORD DLLVersion = MAKEWORD(2, 1);
 //	if (WSAStartup(DLLVersion, &wsaData) != 0)
 //	{
-//		std::cerr << "Can't Initialize winsock!, msg #" << WSAStartup(DLLVersion, &wsaData) << '\n';
+//		std::cerr << "Can't Initialize winsock!, msg # " << WSAStartup(DLLVersion, &wsaData) << '\n';
 //		exit(1);
 //	}
 //
@@ -316,7 +316,7 @@
 //
 //	if (sock == INVALID_SOCKET)
 //	{
-//		std::cerr << "Cannot create a socket! Errror #" << WSAGetLastError() << '\n';
+//		std::cerr << "Cannot create a socket! Errror # " << WSAGetLastError() << '\n';
 //		WSACleanup();
 //		return 0;
 //	}

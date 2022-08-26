@@ -15,7 +15,7 @@ public:
 	virtual void Cleanup() = 0;
 
 protected:
-
+	CError err;
 	Handler handler;
 	std::string m_ipAddress;
 	int port;

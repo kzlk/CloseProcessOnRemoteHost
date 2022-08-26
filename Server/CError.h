@@ -26,16 +26,6 @@ class CError
 public:
 
 	//TODO: handle some status and do job 
-	auto statusHandler(const E_CODE_MESSAGE& err)
-	{
-		//switch - case
-		switch (err)
-		{
-		case error::E_CLOSED_SUCCES:
-
-			break;
-		}
-	};
-
+	static int statusHandler(const E_CODE_MESSAGE& err);
 
 };

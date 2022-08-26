@@ -1,7 +1,7 @@
 #pragma once
 #include "IServer.h"
 
-class WinServer: public IServer 
+class WinServer final : public IServer 
 {
 public:
 	WinServer(std::string ipAddress, int port);
@@ -13,6 +13,6 @@ private:
 	SOCKET listening{};
 	void* CreateSocket() override;
 	void* WaitForAConnection(void *listening, int& clientSiz) override;
-	void Cleanup()override;
+	void Cleanup() override;
 
 };

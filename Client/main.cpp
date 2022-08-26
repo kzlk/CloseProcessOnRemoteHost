@@ -7,11 +7,27 @@
 
 int main()
 {
+
+
+	//start menu
+
+	std::string ipAddress{};
+	int port{};
+
+	std::cout << "Enter IP Address of the Server that you want to connect: ";
+
+	std::cin >> ipAddress;
+
+	std::cout << "Enter Server's listening Port that you want to connect: ";
+
+	std::cin >> port;
+
+
 #ifdef _WIN32
-	IClient* client = new CWinClient("127.0.0.1", 54000);
+	IClient* client = new CWinClient(ipAddress, port);
 #elif defined (__linux__)
 
-	IServer* client = new CLinuxClient("127.0.0.1", 54000);
+	IServer* client = new CLinuxClient(ipAddress, port);
 #endif
 
 

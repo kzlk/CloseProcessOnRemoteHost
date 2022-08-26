@@ -17,13 +17,14 @@ int main()
 	try
 	{
 		server->Init();
+		server->Run();
 	}
 	catch (std::runtime_error& err)
 	{
 			std::cout << err.what() << std::endl;
 	}
 
-	server->Run();
+
 
 	return 0;
 	

@@ -9,7 +9,7 @@ int CError::statusHandler(const E_CODE_MESSAGE& err)
 
 	case msg::E_H_CLOSE_PROC:
 
-		std::cerr << "Error in sending header \"close proc\"" << '\n';
+		std::cerr << "Error in receiving header \"close proc\"" << '\n';
 
 		return  -1;
 

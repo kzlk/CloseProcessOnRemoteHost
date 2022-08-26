@@ -13,10 +13,10 @@ serializable_map<int, std::string> CWinProcess::processNamePID()
 
 		/*In MSVC compiler need additional cast*/
 
-		//std::string ws(pe32.szExeFile);
-		//std::string str(ws.begin(), ws.end());
+		std::string ws(pe32.szExeFile);
+		std::string str(ws.begin(), ws.end());
 
-		map_.insert(std::pair<int, std::string>(pe32.th32ProcessID, pe32.szExeFile));
+		map_.insert(std::pair<int, std::string>(pe32.th32ProcessID, str));
 	}
 
 	return map_;

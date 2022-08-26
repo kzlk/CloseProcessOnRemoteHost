@@ -1,5 +1,6 @@
 #include "WinServer.h"
 
+#include <thread>
 #include <utility>
 
 WinServer::WinServer(std::string ipAddress, const int port): IServer(std::move(ipAddress), port)
@@ -87,8 +88,8 @@ void WinServer::Run()
 	FD_ZERO(&master);
 
 	FD_SET(listening, &master);
-	char host[NI_MAXHOST];	//client's remote name
-	char service[NI_MAXSERV];	//service (i.e. port) the client is connected on
+	//char host[NI_MAXHOST];	//client's remote name
+	//char service[NI_MAXSERV];	//service (i.e. port) the client is connected on
 
 	memset(host, 0, NI_MAXHOST);
 	memset(service, 0, NI_MAXSERV);
@@ -140,10 +141,13 @@ void WinServer::Run()
 			{
 				//inet_ntop(AF_INET, &client_addr.sin_addr, host, NI_MAXHOST);
 				getnameinfo((sockaddr*)&client_addr, sizeof(client_addr), host, NI_MAXHOST, service, NI_MAXSERV, 0);
+				//Handler* d = new Handler;
 
-				auto stat = handler.clientHandler(sock, host, master);
+				//std::thread thread([sock, this] {handler.clientHandler(sock, host, master);});
+				//thread.detach();
+				E_CODE_MESSAGE stat = handler.clientHandler(sock, host, master);
 
-				//statusHandler(stat);
+				int errGet = err.statusHandler(stat);
 			}
 		}
 	}

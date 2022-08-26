@@ -88,7 +88,7 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 			}
 			else
 			{
-				return error::E_GET_PID;
+				return error::E_GET_NAME;
 			}
 
 		}
