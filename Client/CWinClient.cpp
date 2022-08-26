@@ -6,7 +6,7 @@ CWinClient::CWinClient(std::string ipAddress, const int port): IClient(std::move
 
 CWinClient::~CWinClient()
 {
-	Cleanup();
+	CWinClient::Cleanup();
 }
 
 bool CWinClient::Init()
