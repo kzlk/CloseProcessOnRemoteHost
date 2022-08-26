@@ -19,7 +19,7 @@ private:
     }
 
     //template<>
-    void write(std::stringstream& ss, int& str)
+    void write(std::stringstream& ss, const int& str) const
     {
         auto str1 = (std::to_string(str));
         size_t size = str1.size();

@@ -19,7 +19,6 @@ auto selProcessToClose(const serializable_map<int, std::string>& map, const std:
 		"winlogon.exe", "csrss.exe" ,
 		"RuntimeBroker.exe", "ApplicationFrameHost.exe",
 		"ctfmon.exe", "SecurityHealthService.exe", "spoolsv.exe" };
-	//const std::string process = "chrome.exe"; //hardcode for testing
 #endif
 	//TODO: linux lin_sys_proc.txt
 
@@ -73,6 +72,7 @@ auto selProcessToClose(const serializable_map<int, std::string>& map, const int&
 	 char getPID[MESSAGE_HEADER_SIZE]      =  "get_pid";
 	 char getName[MESSAGE_HEADER_SIZE]     =  "get_name";
 	 char selProc[MESSAGE_HEADER_SIZE]     = "sel_proc";
+	 char disconnect[MESSAGE_HEADER_SIZE] = "disconnect";
 }header;
 
  //TODO: error handler
@@ -97,8 +97,7 @@ auto selProcessToClose(const serializable_map<int, std::string>& map, const int&
 
  typedef E_CODE_MESSAGE error;
 
-//TODO: func which start in new thread and recv header from client and do some job
-auto clientHandler(const SOCKET &sock, char* buffer) 
+auto clientHandler(const SOCKET &sock, const char* buffer, fd_set &master)
 {
 	char headerBuf[MESSAGE_HEADER_SIZE];
 	ZeroMemory(headerBuf, MESSAGE_HEADER_SIZE); // Windows
@@ -191,7 +190,8 @@ auto clientHandler(const SOCKET &sock, char* buffer)
 				return error::E_GET_PID;
 			}
 				
-		}else if(strcmp(header.selProc, headerBuf) == NULL)
+		}
+		else if(strcmp(header.selProc, headerBuf) == NULL)
 		{
 			//sel process to close
 
@@ -218,26 +218,32 @@ auto clientHandler(const SOCKET &sock, char* buffer)
 
 
 		}
-		//TODO: send that is end of execution
+		else if (strcmp(header.disconnect, headerBuf) == NULL)
+		{
+			// Drop the client
 
+#ifdef _WIN32
+			closesocket(sock);
+#else defined(__linux__)
+			close(sock);
+#endif
+
+			FD_CLR(sock, &master);
+			std::cout << "> Client " << buffer << (" with SOCKET # ") << sock << " disconnected" << '\n';
+		}
 	}
-
-	//TODO: drop client
-	/*
-	if (bytesIn <= 0)
-	{
-		// Drop the client
-		closesocket(sock);
-		FD_CLR(sock, &master);
-	}
-	*/
-
 }
 
 //TODO: handle some status and do job 
 auto statusHandler(E_CODE_MESSAGE &err)
 {
 	//switch - case
+	switch(err)
+	{
+	case error::E_CLOSED_SUCCES:
+
+		break;
+	}
 };
 
 
@@ -310,7 +316,7 @@ int main()
 	memset(host, 0, NI_MAXHOST);
 	memset(service, 0, NI_MAXSERV);
 	bool running = true;
-
+	//std::string buf;
 	while (running)
 	{
 
@@ -360,7 +366,7 @@ int main()
 				//inet_ntop(AF_INET, &client_addr.sin_addr, host, NI_MAXHOST);
 				getnameinfo((sockaddr*)&client_addr, sizeof(client_addr), host, NI_MAXHOST, service, NI_MAXSERV, 0);
 				
-				auto stat = clientHandler(sock, host);
+				auto stat = clientHandler(sock, host, master);
 
 				statusHandler(stat);
 			}

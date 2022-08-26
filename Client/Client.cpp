@@ -23,7 +23,7 @@ int sendall(const int s, const vector<char>& buf, int* len)
 		bytesleft -= n;
 	}
 	*len = total; // here is the number of bytes actually sent
-	return n == -1 ? -1 : 0; //  -1 when error, 0 when success
+	return n == -1 ? -1 : 0; //  -1 when msg, 0 when success
 }
 
 //header for message
@@ -36,23 +36,19 @@ struct messageHeader
 	char getPID[MESSAGE_HEADER_SIZE]      = "get_pid";
 	char getName[MESSAGE_HEADER_SIZE]     = "get_name";
 	char selProc[MESSAGE_HEADER_SIZE]     = "sel_proc";
+	char disconnect[MESSAGE_HEADER_SIZE]  = "disconnect";
 
 }header;
 
-//TODO: make class for error handling
+//TODO: make class for msg handling
 //TODO: enum for status of closing process
 enum class E_CODE_MESSAGE
 {
-	E_CLOSED_SUCCES,
-	E_REC_LIST_PROC,
-	E_GET_SER_MAP,
-	E_GET_BYTES,
 	E_MAP_EMPTY,
 	E_SEND_H_STATUS,
 	E_SEND_STATUS,
 	E_RECV_PID,
 	E_H_CLOSE_PROC,
-	E_CLOSE_PROC,
 	E_GET_WIN_PROC,
 	E_SEND_H_LIST,
 	E_SIZE_MAP,
@@ -60,10 +56,17 @@ enum class E_CODE_MESSAGE
 	E_SEND_H_PID,
 	E_SEND_H_NAME, 
 	E_SEND_PID,
-	E_SEND_NAME
+	E_SEND_H_DISC,
+	SUCCESS,
+	FAILURE
 };
 
-typedef E_CODE_MESSAGE error;
+typedef E_CODE_MESSAGE msg;
+
+auto iDisconect(const SOCKET &sock)
+{
+	return send(sock, header.disconnect, MESSAGE_HEADER_SIZE, NULL);
+}
 
 //handle receiving message
 //TODO: exit from cycle
@@ -82,42 +85,47 @@ auto clientHandler()
 	{
 		//receive header
 		if (recv(sock, headerBuf, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
-			return error::E_H_CLOSE_PROC;
+			return msg::E_H_CLOSE_PROC;
 
 		//received header to close process
 		if (strcmp(header.closeProc, headerBuf) == NULL)
 		{
 			//receive PID 
 			if (recv(sock, (char*)&PID, sizeof(PID), NULL) == E_RECV_SEND)
-				return error::E_RECV_PID;
-			std::cout << " Server > : received PID " << PID << '\n';
+				return msg::E_RECV_PID;
+			std::cout << "Server > : received PID " << PID << '\n';
 
 			//send closestatus header 
 			if (send(sock, header.closeStatus, sizeof(header.closeStatus), NULL) == E_RECV_SEND)
-				return error::E_SEND_H_STATUS;
+				return msg::E_SEND_H_STATUS;
 
 			//close process
 			if (proc.closeProcessByPID(PID) != NULL)
 			{
+				//TODO: name also output
 				//send status is success
 				if (send(sock, (char*)&isSuccess, sizeof(isSuccess), NULL) == E_RECV_SEND)
-					return error::E_SEND_STATUS;
-				std::cout << " > Process ...... with PID " << PID << " closed successful" << '\n';
+					return msg::E_SEND_STATUS;
+				std::cout << "> Process ...... with PID " << PID << " closed successful" << '\n';
+				return msg::SUCCESS;
 
 			}else 
 			{
 				//send status is failure
 				if (send(sock, (char*)&isFailed, sizeof(isFailed), NULL) == E_RECV_SEND)
-					return error::E_SEND_STATUS;
-				std::cout << " > Process ...... with PID " << PID << " close failed" << '\n';
+					return msg::E_SEND_STATUS;
+				std::cout << "> Process ...... with PID " << PID << " close failed" << '\n';
+				return msg::FAILURE;
 			}
+
+			
 
 		}
 		else if (strcmp(header.getListProc, headerBuf) == NULL) 
 		{
 #ifdef _WIN32
 			auto serMap = proc.processNamePID();
-			if (serMap.empty()) { return error::E_GET_WIN_PROC;}
+			if (serMap.empty()) { return msg::E_GET_WIN_PROC;}
 #endif //
 			//TODO: friendly user console interface
 
@@ -128,17 +136,17 @@ auto clientHandler()
 
 			//send header list of processes
 			int sendHeaderFor = send(sock, header.listProc, MESSAGE_HEADER_SIZE, NULL);
-			if (sendHeaderFor == E_RECV_SEND) { return error::E_SEND_H_LIST; }
+			if (sendHeaderFor == E_RECV_SEND) { return msg::E_SEND_H_LIST; }
 
 			//send to server size of map(processes list)
 			int sendSize = send(sock, (char*)&len, sizeof(int), NULL); //
-			if (sendSize == -1) {  return error::E_SIZE_MAP; }
+			if (sendSize == -1) {  return msg::E_SIZE_MAP; }
 
 			//send serialized map to server
 			if (sendall(sock, byteStream, &len) == E_RECV_SEND)
 			{
 				std::cout << "Serialized map --> " << len << " bytes sent" << '\n';
-				return error::E_SEND_MAP;
+				return msg::E_SEND_MAP;
 			}
 
 			//enter PID or name of process
@@ -150,46 +158,49 @@ auto clientHandler()
 			
 			while (choice != 2 && choice != 1)
 			{
+				std::cout << '>';
 				std::cin >> choice;
 				switch (choice)
 				{
 				case 1:
 					std::cout << "Please enter process' PID: ";
+					std::cout << '>';
 					std::cin >> enterPID;
 
 					//send header that we enter PID
 					if (send(sock, header.getPID, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
-						return error::E_SEND_H_PID;
+						return msg::E_SEND_H_PID;
 
 					//send input PID
 					if (send(sock, (char*)&enterPID, sizeof(int), NULL) == E_RECV_SEND)
-						return error::E_SEND_PID;
-
-					//do some job
+						return msg::E_SEND_PID;
 					break;
+
 				case 2:
 					std::cout << "Please enter process' name : ";
+					std::cout << '>';
 					std::cin >> enterName;
 
 					//send header that we enter NAME
 					if (send(sock, header.getName, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
-						return error::E_SEND_H_PID;
+						return msg::E_SEND_H_NAME;
 
 					//send input NAME
 					if (send(sock, enterName.c_str(), enterName.size() + 1, NULL) == E_RECV_SEND)
-						return error::E_SEND_PID;
-
-					//do some job
+						return msg::E_SEND_PID;
 					break;
 				default:
 					std::cout << "Wrong input! Please try again!\n Enter your choice ";
 					break;
+
+				case 3:
+					if (iDisconect(sock) == E_RECV_SEND) return msg::E_SEND_H_DISC;
 				}
 			}
 
 			//send header to select process
 			if (send(sock, header.selProc, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
-				return error::E_SEND_H_PID;
+				return msg::E_SEND_H_PID;
 			
 		}
 
@@ -197,75 +208,79 @@ auto clientHandler()
 
 }
 
-//handle 
+
 auto statusHandler(const E_CODE_MESSAGE& err)
 {
 	switch(err)
 	{
-	case error::E_CLOSED_SUCCES :
 
-		
-		break;
+	case msg::E_H_CLOSE_PROC:
 
-	case error::E_CLOSE_PROC:
+		std::cerr << "Error in sending header \"close proc\"" << '\n';
 
+		return  -1;
 
-		break;
+	case msg::E_MAP_EMPTY:
 
-	case error::E_GET_BYTES:
+		std::cerr << "List of processes is EMPTY" << '\n';
+		return  -1;
 
-		break;
+	case msg::E_RECV_PID:
 
-	case error::E_GET_SER_MAP:
+		std::cerr << "Error! Can not receive PID from server" << '\n';
+		return  -1;
 
-		break;
+	case msg::E_SEND_H_STATUS:
 
-	case error::E_H_CLOSE_PROC:
+		std::cerr << "Error! Could not send header \"status\"" << '\n';
+		return  -1;
 
+	case msg::E_SEND_STATUS:
 
-		break;
+		std::cerr << "Error! Could not send status of closing process" << '\n';
+		return  -1;
 
-	case error::E_MAP_EMPTY:
-
-
-		break;
-
-	case error::E_RECV_PID:
-
-		break;
-
-	case error::E_REC_LIST_PROC:
-
-
-		break;
-	case error::E_SEND_H_STATUS:
-
-
-		break;
-	case error::E_SEND_STATUS:
-
-		break;
-
-	case error::E_GET_WIN_PROC:
+	case msg::E_GET_WIN_PROC:
 		std::cerr << "Could not get Windows processes " << '\n';
-		break;
+		return  -1;
 
-	case error::E_SEND_H_LIST:
+	case msg::E_SEND_H_LIST:
 		std::cerr << "Error in sending header for list process" << '\n';
-		break;
+		return  -1;
 
-	case error::E_SIZE_MAP:
+	case msg::E_SIZE_MAP:
 		std::cerr << "Cannot send size of map" << '\n';
-		break;
+		return  -1;
 
-	case error::E_SEND_MAP:
+	case msg::E_SEND_MAP:
 		std::cerr << "Cannot send serialized map" << '\n';
-		break;
-	}
+		return  -1;
 
-	
-		
-	return 0;
+	case E_CODE_MESSAGE::E_SEND_H_PID: 
+		std::cerr << "Cannot send header \"get_pid\"" << '\n';
+		return  -1;
+
+	case E_CODE_MESSAGE::E_SEND_H_NAME: 
+		std::cerr << "Cannot send header \"get_name\"" << '\n';
+		return  -1;
+
+	case E_CODE_MESSAGE::E_SEND_PID:
+		std::cerr << "Cannot send PID to server" << '\n';
+		return  -1;
+
+	case msg::E_SEND_H_DISC:
+		std::cerr << "Cannot send disconnect header" << '\n';
+		return  -1;
+
+	case msg::FAILURE:
+		return -1;
+
+	case msg::SUCCESS:
+		return 0;
+
+	default: std::cerr << "Unknown status" << '\n'; return  -1;
+
+	}
 }
 
 int main()
@@ -289,7 +304,7 @@ int main()
 	WORD DLLVersion = MAKEWORD(2, 1);
 	if (WSAStartup(DLLVersion, &wsaData) != 0)
 	{
-		std::cerr << "Can't Initialize winsock!, error #" << WSAStartup(DLLVersion, &wsaData) << '\n';
+		std::cerr << "Can't Initialize winsock!, msg #" << WSAStartup(DLLVersion, &wsaData) << '\n';
 		exit(1);
 	}
 
@@ -317,8 +332,6 @@ int main()
 
 #else
 #endif
-	
-
 	
 
 	//fill in a hint structure
@@ -357,12 +370,11 @@ int main()
 	bool isRepeat = true;
 	
 	std::string msg1{};
-
+	int choice{};
 	//TODO: exit from cycle
 
 	do
 	{
-
 		//handle receiving messages
 		auto response = clientHandler();
 		/* 1) function to response to received header
@@ -377,18 +389,30 @@ int main()
 		 */
 
 		const auto handle = statusHandler(response);
-		if(handle == 1)
-		{
-			// repeat = true
-		}
+		if(handle == NULL)
+			std::cout << "\nDo you want to continue? " << '\n';
 		else
+			std::cout << "Something went wrong! Do you want to try again? " << '\n';
+		std::cout << "Enter -> 1 to continue\nEnter -> 2 to exit\n";
+
+		while (choice != 1 && choice != 2)
 		{
-			//repeat = false
+			std::cout << '>';
+			std::cin >> choice;
+
+			switch(choice)
+			{
+			case 1 :
+				isRepeat = true;
+				break;
+			case 2:
+				isRepeat = false;
+				iDisconect(sock);
+				break;
+			default: std::cout << "Incorrect input! Try again!"; break;
+			}
+			
 		}
-
-		//quit
-
-		isRepeat = false;
 
 	} while (isRepeat);
 	//thread.join();
