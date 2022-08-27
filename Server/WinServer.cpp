@@ -1,3 +1,4 @@
+#ifdef  _WIN32
 #include "WinServer.h"
 
 #include <thread>
@@ -19,26 +20,23 @@ bool WinServer::Init()
 	if (wsOk != NULL)
 	{
 		throw std::runtime_error("Can't Initialize WinSock! Quitting");
-		return false;
 	}
 
 	 listening = (SOCKET)CreateSocket();
 	if (listening == INVALID_SOCKET)
 	{
 		throw std::runtime_error("Can't create a socket! Quitting");
-		//std::cerr << "Can't create a socket! Quitting" << '\n'; return;
 	}
 
 	return (wsOk == NULL) && (listening != (INVALID_SOCKET));
 }
 
-void* WinServer::CreateSocket()
+SOCKET WinServer::CreateSocket()
 {
 	// Create a socket
-	SOCKET listening = socket(AF_INET, SOCK_STREAM, 0);
-	if (listening != INVALID_SOCKET)
+	SOCKET listeningSock = socket(AF_INET, SOCK_STREAM, 0);
+	if (listeningSock != INVALID_SOCKET)
 	{
-
 		// Bind the ip address and port to a socket
 		sockaddr_in hint{};
 		hint.sin_family = AF_INET;
@@ -46,40 +44,34 @@ void* WinServer::CreateSocket()
 		//hint.sin_addr.S_un.S_addr = INADDR_ANY;
 		inet_pton(AF_INET, m_ipAddress.c_str(), &hint.sin_addr);
 
-		int bindOK = bind(listening, (sockaddr*)&hint, sizeof(hint));
+		int bindOK = bind(listeningSock, (sockaddr*)&hint, sizeof(hint));
 		if (bindOK != SOCKET_ERROR)
 		{
-			// Tell Winsock the socket is for listening 
-			int listenOK = listen(listening, SOMAXCONN);
+			// Tell Winsock the socket is for listeningSock
+			int listenOK = listen(listeningSock, SOMAXCONN);
 			if (listenOK == SOCKET_ERROR)
 			{
-				return (void*) (-1);
+				return (-1);
 			}
 		}
 		else
 		{
-			return (void*) (-1) ;
+			return  (-1) ;
 		}
 	}
 
-	return (void*)listening;
+	return listeningSock;
 }
 
-void* WinServer::WaitForAConnection(void* listening, int& clientSiz)
+SOCKET WinServer::WaitForAConnection(SOCKET listening)
 {
 	SOCKET client = accept((SOCKET)listening, (sockaddr*)&client_addr, &clientSize);
-	return (void*)client;
+	return client;
 }
 
 //TODO: close server correctly
 void WinServer::Run()
 {
-	//create listening socket
-	//SOCKET listening = (SOCKET)CreateSocket();
-	//if (listening == INVALID_SOCKET) 
-	//{ std::cerr << "Can't create a socket! Quitting" << '\n'; return; }
-	//wait for a connection 
-	//loop for connection (select)
 
 	clientSize = sizeof(client_addr);
 
@@ -94,7 +86,7 @@ void WinServer::Run()
 	memset(host, 0, NI_MAXHOST);
 	memset(service, 0, NI_MAXSERV);
 
-	bool running = true;
+	running = true;
 
 	while (running)
 	{
@@ -115,7 +107,7 @@ void WinServer::Run()
 
                	// Accept a new connection
 				//SOCKET client = accept(listening, (sockaddr*)&client_addr, &clientSize);
-				SOCKET client = (SOCKET)WaitForAConnection((void*)listening, clientSize);
+				SOCKET client = WaitForAConnection(listening);
 
 				// Add the new connection to the list of connected clients
 				FD_SET(client, &master);
@@ -139,15 +131,25 @@ void WinServer::Run()
 			}
 			else // an inbound message
 			{
-				//inet_ntop(AF_INET, &client_addr.sin_addr, host, NI_MAXHOST);
+				
 				getnameinfo((sockaddr*)&client_addr, sizeof(client_addr), host, NI_MAXHOST, service, NI_MAXSERV, 0);
-				//Handler* d = new Handler;
 
-				//std::thread thread([sock, this] {handler.clientHandler(sock, host, master);});
-				//thread.detach();
 				E_CODE_MESSAGE stat = handler.clientHandler(sock, host, master);
+				const int errGet = CError::statusHandler(stat);
 
-				int errGet = err.statusHandler(stat);
+
+				if (errGet == 1)
+				{
+					running = false;
+				}else if(errGet == 0)
+				{
+					
+				}
+				else if(errGet == -1)
+				{
+					
+				}
+				 
 			}
 		}
 	}
@@ -163,6 +165,7 @@ void WinServer::Cleanup()
 	while (master.fd_count > 0)
 	{
 		const SOCKET sock = master.fd_array[0];
+		send(sock, header.closeServer, MESSAGE_HEADER_SIZE, 0);
 		send(sock, msg.c_str(), msg.size() + 1, 0);
 		FD_CLR(sock, &master);
 
@@ -171,3 +174,5 @@ void WinServer::Cleanup()
 	}
 	WSACleanup();
 }
+
+#endif

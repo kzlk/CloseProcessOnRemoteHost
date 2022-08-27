@@ -8,7 +8,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-#include <CLinuxProcess.h>
+#include "CLinuxProcess.h"
+#define SOCKET int
 
 #elif defined(_WIN32)
 #include <WS2tcpip.h>
@@ -34,7 +35,7 @@ struct messageHeader
 	char getName[MESSAGE_HEADER_SIZE] = "get_name";
 	char selProc[MESSAGE_HEADER_SIZE] = "sel_proc";
 	char disconnect[MESSAGE_HEADER_SIZE] = "disconnect";
-
+	char closeServer[MESSAGE_HEADER_SIZE] = "goodbye";
 };
 
 class CClientHandler
@@ -45,6 +46,7 @@ public:
 	int sendall(int s, const std::vector<char>& buf, int* len);
 
 private:
+	serializable_map<int, std::string> serMap;
 	messageHeader header;
 
 #ifdef _WIN32

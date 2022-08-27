@@ -16,7 +16,8 @@ enum class E_CODE_MESSAGE
 	E_PID_EMPTY,
 	E_GET_PID,
 	E_GET_NAME,
-	E_GET_H_SEL_PROC
+	E_GET_H_SEL_PROC,
+	E_STOP_SERVER
 };
 
 typedef E_CODE_MESSAGE error;

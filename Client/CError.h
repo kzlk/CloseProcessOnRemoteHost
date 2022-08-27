@@ -17,7 +17,8 @@ enum class E_CODE_MESSAGE
 	E_SEND_PID,
 	E_SEND_H_DISC,
 	SUCCESS,
-	FAILURE
+	FAILURE,
+	E_RECV_EXIT
 };
 
 typedef E_CODE_MESSAGE msg;

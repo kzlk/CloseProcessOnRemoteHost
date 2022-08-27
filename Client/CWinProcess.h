@@ -1,4 +1,6 @@
 #pragma once
+#ifdef _WIN32
+#pragma once
 #include "IProcess.h"
 #include <WS2tcpip.h>
 #pragma comment (lib, "ws2_32.lib")
@@ -6,7 +8,7 @@
 #include <windows.h>
 #include <iostream>
 #include <string>
-
+#define ERROR_CLOSE 0
 class CWinProcess : public IProcess
 {
 
@@ -19,4 +21,6 @@ private:
 	HANDLE hProcess = nullptr;    //create handle identifier for object hprocess
 	PROCESSENTRY32 pe32 = {};    //Describes an entry from a list of the processes residing
 	                            //in the system address space when a snapshot was taken.
-}; 
+};
+
+#endif

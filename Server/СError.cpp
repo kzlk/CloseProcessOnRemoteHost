@@ -4,8 +4,15 @@
 
 #include "CError.h"
 
+/*
+* @return -1 when critical error
+* @return  1 when server is stopping
+* @return  0 when process successful closed
+ */
+
 int CError::statusHandler(const E_CODE_MESSAGE& err)
 {
+
 	switch (err)
 	{
 	case E_CODE_MESSAGE::E_REC_LIST_PROC:
@@ -30,8 +37,7 @@ int CError::statusHandler(const E_CODE_MESSAGE& err)
 		return 0;
 		
 	case E_CODE_MESSAGE::E_IS_FAILED_CLOSE:
-		return -1;
-	
+		break;
 	case E_CODE_MESSAGE::E_STATUS_UNKNOWN:
 		std::cerr << "Unknown status of process closing\n";
 		break;
@@ -45,7 +51,12 @@ int CError::statusHandler(const E_CODE_MESSAGE& err)
 	case E_CODE_MESSAGE::E_GET_NAME: 
 		std::cerr << "Error getting NAME of process\n";
 		break;
+
+	case E_CODE_MESSAGE::E_STOP_SERVER:
+		return 1;
 	default: std::cerr << "Unknown status of process closing\n"; break; ;
 	}
 	return -1;
+
+	
 }

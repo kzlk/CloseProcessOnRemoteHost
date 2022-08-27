@@ -8,27 +8,27 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 	static std::string getName; //input from user names
 	static bool isPIDSent;
 	static int PID;
-	//ZeroMemory(headerBuf, MESSAGE_HEADER_SIZE); 
+
 	memset(headerBuf, 0, MESSAGE_HEADER_SIZE);
 
 	while (true) 
 	{
 		int isGetListProc = recv(sock, headerBuf, MESSAGE_HEADER_SIZE, NULL);
-		if (isGetListProc == E_RECV_SEND) { return error::E_REC_LIST_PROC; };
+		if (isGetListProc == E_RECV_SEND) { return error::E_REC_LIST_PROC; }
 
-		
+		//if we get list of processes
 		if (strcmp(headerBuf, header.listProc) == NULL)
 		{
 			// Receive num of bytes in map<> from client
 			int bytesIn = recv(sock, (char*)&sizeStreamBytes, sizeof(sizeStreamBytes), 0);
-			if (bytesIn == E_RECV_SEND) { return error::E_GET_BYTES; };
+			if (bytesIn == E_RECV_SEND) { return error::E_GET_BYTES; }
 
 			//buf to store stream of bytes
 			recvDataByte.resize(sizeStreamBytes);
 
 			//recieve serialized map data
 			int bytesStream = recv(sock, ((char*)recvDataByte.data()), sizeStreamBytes, 0);
-			if (bytesStream == E_RECV_SEND) { return error::E_GET_SER_MAP; };
+			if (bytesStream == E_RECV_SEND) { return error::E_GET_SER_MAP; }
 
 
 			//deserialize received map
@@ -37,11 +37,65 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 
 			std::cout << "> Received list of process from " << buffer << " (SOCKET# " << sock << ")" << '\n';
 
+			/*
+			 * user input for process
+			 * get process id
+			 * send PID to client
+			 */
+
+			int choice{};
+			int enterPID{};
+			std::string enterName{};
+			std::cout << "How do you want to do?" << '\n';
+			std::cout << "1) Close process by PID : enter -> 1"
+			"\n2) Close process by name : enter -> 2"
+			"\n3) Show processes: enter -> 3"
+			"\n4) Exit: enter -> 4\n";
+
+			while (PID != -1 && (choice != 2 && choice != 1 && choice != 4))
+			{
+				std::cin >> choice;
+				switch (choice)
+				{
+				case 1:
+					std::cout << "Please enter process' PID:\n> ";
+					std::cin >> enterPID;
+					PID = selProcessToClose(serMap, enterPID);
+					if (PID == -1) std::cout << "Process with PID" << enterPID << " is not exist";
+				    break;
+				case 2:
+					std::cout << "Please enter process' name:\n> ";
+					std::cin >> enterName;
+					PID = selProcessToClose(serMap, enterName);
+					if (PID == -1) std::cout << "Process with PID" << enterPID << " is not exist";;
+					break;
+				default:
+					std::cout << "Wrong input! Please try again!\n Enter your choice ";
+					break;
+				case 3:
+					std::cout << "--------------------------------------" << '\n';
+					std::cout << "PID  " << "\t" << "Name" << '\n';
+					for (auto& proc : serMap)
+						std::cout << proc.first << '\t'  << proc.second << '\n';
+					std::cout << "--------------------------------------" << '\n';
+					break;
+				case 4:
+					return error::E_STOP_SERVER;
+				}
+			}
+
+			//send header to process close
+			if (send(sock, header.closeProc, sizeof(header.closeProc), NULL) == E_RECV_SEND)
+				return error::E_SEND_H_CLOSE;
+
+			//send PID process to close
+			if (send(sock, (char*)&PID, sizeof(PID), NULL) == E_RECV_SEND)
+				return error::E_SEND_PID;
 
 		}
+		//receive closing status 
 		else if (strcmp(headerBuf, header.closeStatus) == NULL)
 		{
-			//receive closing status
 
 			int codeStatus{};
 			int isSuccess = 0;
@@ -65,6 +119,7 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 			}
 
 		}
+		//get PID process[maybe unused]
 		else if (strcmp(header.getPID, headerBuf) == NULL)
 		{
 			//recieve PID
@@ -75,6 +130,7 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 			}
 
 		}
+		//get name process[maybe unused]
 		else if (strcmp(header.getName, headerBuf) == NULL)
 		{
 			ZeroMemory(buf, 4096);
@@ -92,6 +148,7 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 			}
 
 		}
+		//select process will be close [maybe unused]
 		else if (strcmp(header.selProc, headerBuf) == NULL)
 		{
 			//sel process to close
@@ -120,6 +177,7 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 
 
 		}
+		//client disconnect
 		else if (strcmp(header.disconnect, headerBuf) == NULL)
 		{
 			// Drop the client
@@ -136,6 +194,7 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 	}
 
 }
+
 int Handler::selProcessToClose(const serializable_map<int, std::string>& map, const std::string& process)
 {
 
@@ -185,6 +244,7 @@ int Handler::selProcessToClose(const serializable_map<int, std::string>& map, co
 	return -1; //process is not exist
 
 }
+
 int Handler::selProcessToClose(const serializable_map<int, std::string>& map, const int& PID)
 {
 	if (map.find(PID) != map.end())

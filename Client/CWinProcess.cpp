@@ -1,3 +1,4 @@
+#ifdef _WIN32
 #include "CWinProcess.h"
 
 serializable_map<int, std::string> CWinProcess::processNamePID()
@@ -34,3 +35,5 @@ int CWinProcess::closeProcessByPID(int PID)
 	return TerminateProcess(hProcess, 0);
 
 }
+
+#endif

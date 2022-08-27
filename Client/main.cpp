@@ -8,7 +8,6 @@
 int main()
 {
 
-
 	//start menu
 
 	std::string ipAddress{};
@@ -27,9 +26,8 @@ int main()
 	IClient* client = new CWinClient(ipAddress, port);
 #elif defined (__linux__)
 
-	IServer* client = new CLinuxClient(ipAddress, port);
+	IClient* client = new CLinuxClient(ipAddress, port);
 #endif
-
 
 	try
 	{
@@ -41,7 +39,7 @@ int main()
 	{
 		std::cout << err.what() << std::endl;
 	}
-
+	delete client;
 	
 	return 0;
 

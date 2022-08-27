@@ -1,3 +1,4 @@
+#ifdef _WIN32
 #include "CWinClient.h"
 
 #include <utility>
@@ -52,6 +53,7 @@ void CWinClient::Run()
 			switch (choice)
 			{
 			case 1:
+				//send to server header "continue"
 				isRepeat = true;
 				break;
 			case 2:
@@ -98,3 +100,4 @@ void CWinClient::CreateSocket()
 
 }
 
+#endif

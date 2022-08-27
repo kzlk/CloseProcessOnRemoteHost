@@ -16,15 +16,11 @@
 #else
 #endif
 
-
-
 #define MESSAGE_HEADER_SIZE 20
 #define E_RECV_SEND (-1)
 
-
 struct messageHeader
 {
-public:
 	char listProc[MESSAGE_HEADER_SIZE] = "list_proc";
 	char closeProc[MESSAGE_HEADER_SIZE] = "close_proc";
 	char closeStatus[MESSAGE_HEADER_SIZE] = "status";
@@ -33,17 +29,17 @@ public:
 	char getName[MESSAGE_HEADER_SIZE] = "get_name";
 	char selProc[MESSAGE_HEADER_SIZE] = "sel_proc";
 	char disconnect[MESSAGE_HEADER_SIZE] = "disconnect";
+	char closeServer[MESSAGE_HEADER_SIZE] = "goodbye";
 };
 
 
 class Handler
 {
-private:
-	char headerBuf[MESSAGE_HEADER_SIZE]; //save receive header
+	char headerBuf[MESSAGE_HEADER_SIZE] = {}; //save received header
 	unsigned sizeStreamBytes{};
 	serializable_map<int, std::string> serMap{};
 	std::vector<char> recvDataByte{};
-	char buf[4096];
+	char buf[4096] = {};
 	
 public:
 	messageHeader header;
@@ -52,8 +48,4 @@ public:
 	int selProcessToClose(const serializable_map<int, std::string>& map, const int& PID);
 };
 
-//int Handler::PID = 0;
-//int Handler::getPID = 0;
-//std::string Handler::getName = nullptr;
-//bool Handler::isPIDSent{};
 

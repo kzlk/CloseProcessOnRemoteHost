@@ -1,8 +1,11 @@
+
 #include "CLinuxProcess.h"
 
 #ifdef __linux__
 serializable_map<int, std::string> CLinuxProcess::processNamePID()
 {
+    struct stat st{};
+
     dir = opendir(PROC_DIR);
     if (dir == nullptr)
     {

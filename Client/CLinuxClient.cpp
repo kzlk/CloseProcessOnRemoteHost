@@ -1,5 +1,5 @@
-#include "CLinuxClient.h"
 #ifdef __linux__
+#include "CLinuxClient.h"
 
 CLinuxClient::CLinuxClient(const std::string& ipAddress, const int port) : IClient(ipAddress, port){}
 
@@ -80,7 +80,7 @@ void CLinuxClient::CreateSocket()
 
 		int connResult = connect(sock, (sockaddr*)&hint, sizeof(hint));
 
-		if (connResult == SOCKET_ERROR) throw std::runtime_error("Can't connect to server");
+		if (connResult == -1) throw std::runtime_error("Can't connect to server");
 
 	}
 	else throw std::runtime_error("Cannot create a socket!");

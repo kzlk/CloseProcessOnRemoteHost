@@ -15,7 +15,7 @@ E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 	int isSuccess = 0;
 	int isFailed = -1;
 	char headerBuf[MESSAGE_HEADER_SIZE]{};
-	ZeroMemory(headerBuf, MESSAGE_HEADER_SIZE);
+    memset(headerBuf, 0, MESSAGE_HEADER_SIZE);
 
 	int msg_size;
 	while (true)
@@ -37,13 +37,13 @@ E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 				return msg::E_SEND_H_STATUS;
 
 			//close process
-			if (proc->closeProcessByPID(PID) != NULL)
+			if (proc->closeProcessByPID(PID) != ERROR_CLOSE)
 			{
 				//TODO: name also output
 				//send status is success
 				if (send(sock, (char*)&isSuccess, sizeof(isSuccess), NULL) == E_RECV_SEND)
 					return msg::E_SEND_STATUS;
-				std::cout << "> Process ...... with PID " << PID << " closed successful" << '\n';
+				std::cout << "> Process "<< serMap.find(PID)->second <<" with PID " << PID << " closed successful" << '\n';
 				return msg::SUCCESS;
 
 			}
@@ -52,19 +52,20 @@ E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 				//send status is failure
 				if (send(sock, (char*)&isFailed, sizeof(isFailed), NULL) == E_RECV_SEND)
 					return msg::E_SEND_STATUS;
-				std::cout << "> Process ...... with PID " << PID << " close failed" << '\n';
+				std::cout << "> Process " << serMap.find(PID)->second << "with PID " << PID << " close failed" << '\n';
 				return msg::FAILURE;
 			}
 
 
 
 		}
+
 		else if (strcmp(header.getListProc, headerBuf) == NULL)
 		{
-#ifdef _WIN32
-			auto serMap = proc->processNamePID();
+
+			serMap = proc->processNamePID();
 			if (serMap.empty()) { return msg::E_GET_WIN_PROC; }
-#endif //
+
 			//TODO: friendly user console interface
 
 			std::vector<char> byteStream = serMap.serialize();
@@ -86,7 +87,7 @@ E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 				std::cout << "Serialized map --> " << len << " bytes sent" << '\n';
 				return msg::E_SEND_MAP;
 			}
-
+			/*
 			//enter PID or name of process
 			int choice{};
 			int enterPID{};
@@ -139,8 +140,21 @@ E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 			//send header to select process
 			if (send(sock, header.selProc, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
 				return msg::E_SEND_H_PID;
-
+				*/
 		}
+
+		else if(strcmp(header.closeServer, headerBuf) == NULL)
+		{
+		char buf[1000];
+
+		const int bytesReceived = recv(sock, buf, sizeof(buf), 0);
+		if (bytesReceived == E_RECV_SEND) return msg::E_RECV_EXIT;
+			std::cout << std::string(buf, 0, bytesReceived);
+		}
+
+		/*
+		 *
+		 */
 
 	}
 

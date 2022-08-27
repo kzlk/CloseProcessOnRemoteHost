@@ -71,6 +71,10 @@ int CError::statusHandler(const E_CODE_MESSAGE& err)
 	case msg::SUCCESS:
 		return 0;
 
+	case msg::E_RECV_EXIT:
+		std::cerr << "Cannot receive message from closing server" << '\n';
+		return  -1;
+
 	default: std::cerr << "Unknown status" << '\n'; return  -1;
 
 	}

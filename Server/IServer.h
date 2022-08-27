@@ -2,6 +2,9 @@
 #include "CServerHandler.h"
 #include <string>
 
+#ifdef __linux__
+#define SOCKET int
+#endif
 
 class IServer
 {
@@ -9,16 +12,18 @@ public:
 	IServer(std::string ipAddress, int port); 
 	virtual ~IServer(); 
 	virtual bool Init() = 0;
-	virtual void* CreateSocket() = 0;
-	virtual void* WaitForAConnection( void *listening, int& clientSiz) = 0;
+	virtual SOCKET CreateSocket() = 0;
+	virtual SOCKET WaitForAConnection(SOCKET listening) = 0;
 	virtual void Run() = 0;
 	virtual void Cleanup() = 0;
-
 protected:
 	CError err;
 	Handler handler;
 	std::string m_ipAddress;
 	int port;
+
+    bool running{};
+    messageHeader header;
 
 	int clientSize{};
 	sockaddr_in client_addr{};

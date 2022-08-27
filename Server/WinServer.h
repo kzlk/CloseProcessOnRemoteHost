@@ -1,3 +1,4 @@
+#ifdef _WIN32
 #pragma once
 #include "IServer.h"
 
@@ -9,10 +10,12 @@ public:
 	bool Init() override;
 	void Run() override;
 private:
-	messageHeader header;
+
+
 	SOCKET listening{};
-	void* CreateSocket() override;
-	void* WaitForAConnection(void *listening, int& clientSiz) override;
+	SOCKET CreateSocket() override;
+	SOCKET WaitForAConnection(SOCKET listening) override;
 	void Cleanup() override;
 
 };
+#endif
