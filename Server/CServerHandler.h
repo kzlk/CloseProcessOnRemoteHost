@@ -10,12 +10,14 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#define SOCKET int
 #elif defined(_WIN32)
 #include <WS2tcpip.h>
 #pragma comment (lib, "ws2_32.lib")
 #else
 #endif
 
+#include <cstring>
 #define MESSAGE_HEADER_SIZE 20
 #define E_RECV_SEND (-1)
 

@@ -2,10 +2,6 @@
 #include "CServerHandler.h"
 #include <string>
 
-#ifdef __linux__
-#define SOCKET int
-#endif
-
 class IServer
 {
 public:

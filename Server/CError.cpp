@@ -1,7 +1,3 @@
-#pragma once
-
-#include <iostream>
-
 #include "CError.h"
 
 /*

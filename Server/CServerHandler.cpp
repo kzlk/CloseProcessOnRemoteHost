@@ -133,7 +133,7 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 		//get name process[maybe unused]
 		else if (strcmp(header.getName, headerBuf) == NULL)
 		{
-			ZeroMemory(buf, 4096);
+            memset(buf, 0, 4096);
 			//received name
 			const int bytesReceived = recv(sock, (char*)&buf, 4096, NULL);
 			if (bytesReceived != E_RECV_SEND)
@@ -195,11 +195,11 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 
 }
 
+//TODO: logic if it a system process
+//TODO: send to client that it is a system process
 int Handler::selProcessToClose(const serializable_map<int, std::string>& map, const std::string& process)
 {
 
-	//TODO: read from file win_sys_proc.txt
-	//TODO: send to client that it is a system process 
 #ifdef _WIN32
 	std::string sysProc[] = { "svchost.exe", "lsass.exe" , "explorer.exe", "sihost.exe",
 		"ntoskrnl.exe", "system",
@@ -208,29 +208,17 @@ int Handler::selProcessToClose(const serializable_map<int, std::string>& map, co
 		"RuntimeBroker.exe", "ApplicationFrameHost.exe",
 		"ctfmon.exe", "SecurityHealthService.exe", "spoolsv.exe" };
 #endif
-	//TODO: linux lin_sys_proc.txt
 
-	//TODO: logic for chosing the process to close
 
 	std::vector<int> bufId;
 	for (const auto& entry : map)
 	{
 
-		for (auto& it : sysProc)
-		{
-#ifdef _WIN32
-			if (entry.second == it)
-			{
-				//TODO: logic if it a system process
-				continue;
-			}
-#endif
-
 			if (entry.second == process)
 			{
 				bufId.emplace_back(entry.first);
 			}
-		}
+
 
 	}
 
