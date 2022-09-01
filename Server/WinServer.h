@@ -2,20 +2,19 @@
 #pragma once
 #include "IServer.h"
 
-class WinServer final : public IServer 
+class CServer final : public IServer 
 {
 public:
-	WinServer(std::string ipAddress, int port);
-	~WinServer() override;
+	CServer(std::string ipAddress, int port);
+	~CServer() override;
 	bool Init() override;
 	void Run() override;
-private:
-
-
-	SOCKET listening{};
-	SOCKET CreateSocket() override;
-	SOCKET WaitForAConnection(SOCKET listening) override;
 	void Cleanup() override;
+
+private:
+	SOCKET listening{};
+	SOCKET WaitForAConnection(SOCKET listening) override;
+	bool CreateSocket() override;
 
 };
 #endif

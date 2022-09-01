@@ -4,6 +4,13 @@
 
 int CError::statusHandler(const E_CODE_MESSAGE& err)
 {
+
+	/*
+	 *@ return -1 when error is critical
+	 *@ return 1  when server shutdown
+	 *@ return 0  when all success
+	 */
+
 	switch (err)
 	{
 
@@ -74,6 +81,9 @@ int CError::statusHandler(const E_CODE_MESSAGE& err)
 	case msg::E_RECV_EXIT:
 		std::cerr << "Cannot receive message from closing server" << '\n';
 		return  -1;
+
+	case msg::SHUTDOWN_CLIENT:
+		return 1;
 
 	default: std::cerr << "Unknown status" << '\n'; return  -1;
 

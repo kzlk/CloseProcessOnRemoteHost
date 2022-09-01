@@ -1,5 +1,38 @@
 #include "CServerHandler.h"
 
+int Handler::continueWork(const SOCKET& sock) 
+{
+	memset(headerBuf, 0, MESSAGE_HEADER_SIZE);
+	if( recv(sock, headerBuf, MESSAGE_HEADER_SIZE, NULL) != -1)
+	{
+		if (strcmp(headerBuf, header.continueWork) == NULL)
+		{
+			return 0;
+		}
+		if (strcmp(header.disconnect, headerBuf) == NULL)
+		{
+
+#ifdef _WIN32
+			closesocket(sock);
+#else defined(__linux__)
+			close(sock);
+#endif
+
+			return 1;
+
+		}
+		std::cerr << "Unknown header receive" << headerBuf << "\n";
+	}
+	std::cerr << "can not to receive message in continue method" << '\n';
+	return -1;
+}
+
+bool Handler::isGetListProc(const SOCKET& sock) const
+{
+	if (send(sock, header.getListProc, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
+		return false;
+	return true;
+}
 
 
 E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd_set& master)
@@ -46,14 +79,16 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 			int choice{};
 			int enterPID{};
 			std::string enterName{};
-			std::cout << "How do you want to do?" << '\n';
-			std::cout << "1) Close process by PID : enter -> 1"
-			"\n2) Close process by name : enter -> 2"
-			"\n3) Show processes: enter -> 3"
-			"\n4) Exit: enter -> 4\n";
+		
 
 			while (PID != -1 && (choice != 2 && choice != 1 && choice != 4))
 			{
+				std::cout << "How do you want to do?" << '\n';
+				std::cout << "1) Close process by PID : enter -> 1"
+					"\n2) Close process by name : enter -> 2"
+					"\n3) Show processes: enter -> 3"
+					"\n4) Exit: enter -> 4\n";
+				std::cout << "Enter your choice > ";
 				std::cin >> choice;
 				switch (choice)
 				{
@@ -67,7 +102,7 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 					std::cout << "Please enter process' name:\n> ";
 					std::cin >> enterName;
 					PID = selProcessToClose(serMap, enterName);
-					if (PID == -1) std::cout << "Process with PID" << enterPID << " is not exist";;
+					if (PID == -1) std::cout << "Process with PID" << enterPID << " is not exist";
 					break;
 				default:
 					std::cout << "Wrong input! Please try again!\n Enter your choice ";
@@ -119,64 +154,7 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 			}
 
 		}
-		//get PID process[maybe unused]
-		else if (strcmp(header.getPID, headerBuf) == NULL)
-		{
-			//recieve PID
-			if (recv(sock, (char*)&getPID, sizeof(int), NULL) == E_RECV_SEND)
-			{
-				isPIDSent = true;
-				return error::E_GET_PID;
-			}
 
-		}
-		//get name process[maybe unused]
-		else if (strcmp(header.getName, headerBuf) == NULL)
-		{
-            memset(buf, 0, 4096);
-			//received name
-			const int bytesReceived = recv(sock, (char*)&buf, 4096, NULL);
-			if (bytesReceived != E_RECV_SEND)
-			{
-				getName = std::string(buf, 0, bytesReceived);
-				isPIDSent = false;
-
-			}
-			else
-			{
-				return error::E_GET_NAME;
-			}
-
-		}
-		//select process will be close [maybe unused]
-		else if (strcmp(header.selProc, headerBuf) == NULL)
-		{
-			//sel process to close
-
-			if (isPIDSent)
-			{
-				//return sel proc by PID
-				PID = selProcessToClose(serMap, getPID);
-			}
-			else
-			{
-				//return sel proc by name
-				PID = selProcessToClose(serMap, getName);
-			}
-
-			if (PID == E_RECV_SEND) { return error::E_PID_EMPTY; } //logic if proc not exist
-
-
-			//send header to process close
-			if (send(sock, header.closeProc, sizeof(header.closeProc), NULL) == E_RECV_SEND)
-				return error::E_SEND_H_CLOSE;
-
-			//send PID process to close
-			if (send(sock, (char*)&PID, sizeof(PID), NULL) == E_RECV_SEND)
-				return error::E_SEND_PID;
-
-
-		}
 		//client disconnect
 		else if (strcmp(header.disconnect, headerBuf) == NULL)
 		{
@@ -191,6 +169,7 @@ E_CODE_MESSAGE Handler::clientHandler(const SOCKET& sock, const char* buffer, fd
 			FD_CLR(sock, &master);
 			std::cout << "> Client " << buffer << (" with SOCKET # ") << sock << " disconnected" << '\n';
 		}
+
 	}
 
 }

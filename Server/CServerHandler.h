@@ -32,6 +32,7 @@ struct messageHeader
 	char selProc[MESSAGE_HEADER_SIZE] = "sel_proc";
 	char disconnect[MESSAGE_HEADER_SIZE] = "disconnect";
 	char closeServer[MESSAGE_HEADER_SIZE] = "goodbye";
+	char continueWork[MESSAGE_HEADER_SIZE] = "continue";
 };
 
 
@@ -44,6 +45,8 @@ class Handler
 	char buf[4096] = {};
 	
 public:
+	int continueWork(const SOCKET& sock) ;
+	bool isGetListProc(const SOCKET& sock) const;
 	messageHeader header;
 	E_CODE_MESSAGE clientHandler(const SOCKET& sock, const char* buffer, fd_set& master);
 	int selProcessToClose(const serializable_map<int, std::string>& map, const std::string& process);

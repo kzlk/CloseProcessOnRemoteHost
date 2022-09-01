@@ -2,7 +2,7 @@
 #include "CLinuxProcess.h"
 
 #ifdef __linux__
-serializable_map<int, std::string> CLinuxProcess::processNamePID()
+serializable_map<int, std::string> CProcess::processNamePID()
 {
     struct stat st{};
 
@@ -40,12 +40,12 @@ serializable_map<int, std::string> CLinuxProcess::processNamePID()
 
 }
 
-int CLinuxProcess::closeProcessByPID(int PID)
+int CProcess::closeProcessByPID(int PID)
 {
 	return kill(PID, SIGSEGV);
 }
 
-bool CLinuxProcess::isnumber(const char* string)
+bool CProcess::isnumber(const char* string)
 {
     while (string[0] != '\0') {
         if (!isdigit(string[0])) {
@@ -59,7 +59,7 @@ bool CLinuxProcess::isnumber(const char* string)
 
 }
 
-bool CLinuxProcess::getlinkedpath(const char* linkpath, char* linkedpath)
+bool CProcess::getlinkedpath(const char* linkpath, char* linkedpath)
 {
     if (!realpath(linkpath, linkedpath)) {
         printf("realpath() failed with error %d\n", errno);

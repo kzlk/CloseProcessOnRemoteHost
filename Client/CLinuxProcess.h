@@ -15,7 +15,7 @@
 #define PROC_DIR "/proc/"
 #define EXE_LINK "/exe"
 
-class CLinuxProcess : public IProcess
+class CProcess : public IProcess
 {
 
 public:

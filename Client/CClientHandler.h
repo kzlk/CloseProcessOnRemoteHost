@@ -36,24 +36,19 @@ struct messageHeader
 	char selProc[MESSAGE_HEADER_SIZE] = "sel_proc";
 	char disconnect[MESSAGE_HEADER_SIZE] = "disconnect";
 	char closeServer[MESSAGE_HEADER_SIZE] = "goodbye";
+	char continueWork[MESSAGE_HEADER_SIZE] = "continue";
 };
 
 class CClientHandler
 {
 public:
-	int iDisconect(const SOCKET& sock);
+	int iContinue(const SOCKET& sock) const;
+	int iDisconect(const SOCKET& sock) const;
 	E_CODE_MESSAGE clientHandler(const SOCKET& sock);
-	int sendall(int s, const std::vector<char>& buf, int* len);
+	static int sendall(int s, const std::vector<char>& buf, int* len);
 
 private:
 	serializable_map<int, std::string> serMap;
 	messageHeader header;
-
-#ifdef _WIN32
-	IProcess* proc = new CWinProcess;
-#elif defined (__linux__)
-	IProcess* proc = new CLinuxProcess;
-#endif
-
-
+	IProcess* proc = new CProcess;
 };

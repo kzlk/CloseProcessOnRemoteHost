@@ -4,90 +4,89 @@
 #include <thread>
 #include <utility>
 
-WinServer::WinServer(std::string ipAddress, const int port): IServer(std::move(ipAddress), port)
+CServer::CServer(std::string ipAddress, const int port): IServer(std::move(ipAddress), port)
 {}
 
-WinServer::~WinServer()
+CServer::~CServer()
 {
-	WinServer::Cleanup();
+	CServer::Cleanup();
 }
 
-bool WinServer::Init()
+bool CServer::Init()
 {
 	WSADATA wsData;
 	WORD ver = MAKEWORD(2, 2);
 	int wsOk = WSAStartup(ver, &wsData);
-	if (wsOk != NULL)
+	if (wsOk == NULL)
 	{
-		throw std::runtime_error("Can't Initialize WinSock! Quitting");
+		if (CreateSocket()) return true;
+		return false;
+		
 	}
-
-	 listening = (SOCKET)CreateSocket();
-	if (listening == INVALID_SOCKET)
-	{
-		throw std::runtime_error("Can't create a socket! Quitting");
-	}
-
-	return (wsOk == NULL) && (listening != (INVALID_SOCKET));
+	std::cerr << "Can't Initialize WinSock! Quitting" << '\n';
+	return false;
 }
 
-SOCKET WinServer::CreateSocket()
+bool CServer::CreateSocket()
 {
 	// Create a socket
-	SOCKET listeningSock = socket(AF_INET, SOCK_STREAM, 0);
-	if (listeningSock != INVALID_SOCKET)
+	listening = socket(AF_INET, SOCK_STREAM, 0);
+	if (listening != INVALID_SOCKET)
 	{
 		// Bind the ip address and port to a socket
 		sockaddr_in hint{};
 		hint.sin_family = AF_INET;
 		hint.sin_port = htons(port);
-		//hint.sin_addr.S_un.S_addr = INADDR_ANY;
 		inet_pton(AF_INET, m_ipAddress.c_str(), &hint.sin_addr);
 
-		int bindOK = bind(listeningSock, (sockaddr*)&hint, sizeof(hint));
+		int bindOK = bind(listening, (sockaddr*)&hint, sizeof(hint));
 		if (bindOK != SOCKET_ERROR)
 		{
 			// Tell Winsock the socket is for listeningSock
-			int listenOK = listen(listeningSock, SOMAXCONN);
+			int listenOK = listen(listening, SOMAXCONN);
 			if (listenOK == SOCKET_ERROR)
 			{
-				return (-1);
+				std::cerr << "Error! Can not listen for incoming connections " << '\n';
+				return false;
 			}
 		}
 		else
 		{
-			return  (-1) ;
+			std::cerr << "Error! Can not bind ip and port to socket" << '\n';
+			return false ;
 		}
 	}
+	else
+	{
+		std::cerr << "Can not create listening socket" << '\n';
+		return false;
+	}
 
-	return listeningSock;
+	return true;
 }
 
-SOCKET WinServer::WaitForAConnection(SOCKET listening)
+SOCKET CServer::WaitForAConnection(SOCKET listening)
 {
 	SOCKET client = accept((SOCKET)listening, (sockaddr*)&client_addr, &clientSize);
 	return client;
 }
 
 //TODO: close server correctly
-void WinServer::Run()
+void CServer::Run()
 {
 
 	clientSize = sizeof(client_addr);
 
 	// Create the master file descriptor set and zero it
-
 	FD_ZERO(&master);
 
 	FD_SET(listening, &master);
-	//char host[NI_MAXHOST];	//client's remote name
-	//char service[NI_MAXSERV];	//service (i.e. port) the client is connected on
 
 	memset(host, 0, NI_MAXHOST);
 	memset(service, 0, NI_MAXSERV);
 
 	running = true;
-
+	SOCKET client{};
 	while (running)
 	{
 
@@ -95,7 +94,7 @@ void WinServer::Run()
 
 		// See who's talking to us
 		int socketCount = select(0, &copy, nullptr, nullptr, nullptr);
-
+		
 		// Loop through all the current connections / potential connect
 		for (int i = 0; i < socketCount; i++)
 		{
@@ -107,7 +106,7 @@ void WinServer::Run()
 
                	// Accept a new connection
 				//SOCKET client = accept(listening, (sockaddr*)&client_addr, &clientSize);
-				SOCKET client = WaitForAConnection(listening);
+				client = WaitForAConnection(listening);
 
 				// Add the new connection to the list of connected clients
 				FD_SET(client, &master);
@@ -123,33 +122,93 @@ void WinServer::Run()
 				}
 
 				//send request to get list of processes from client
-				if (send(client, header.getListProc, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
+				/*if (send(client, header.getListProc, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
 				{
 					std::cerr << "Error in sending request to get list of processes from client" << '\n';
-				}
+				}*/
 
+				//send request to get list of processes from client
+				if(!handler.isGetListProc(client))
+					std::cerr << "Error in sending request to get list of processes from client" << '\n';
 			}
 			else // an inbound message
 			{
+				bool isContinue = true;
 				
 				getnameinfo((sockaddr*)&client_addr, sizeof(client_addr), host, NI_MAXHOST, service, NI_MAXSERV, 0);
 
-				E_CODE_MESSAGE stat = handler.clientHandler(sock, host, master);
-				const int errGet = CError::statusHandler(stat);
+				while (isContinue)
+				{
 
+					E_CODE_MESSAGE stat = handler.clientHandler(sock, host, master);
+					const int errGet = CError::statusHandler(stat);
 
-				if (errGet == 1)
-				{
-					running = false;
-				}else if(errGet == 0)
-				{
-					
+					//server stop
+					if (errGet == 1)
+					{
+						running = false;
+						isContinue = false;
+						return;
+					}
+
+					if (errGet == -1)
+					{
+						std::cout << "Critical error occur" << '\n';
+						running = true;
+						isContinue = true;
+					}
+					std::string shutdown{};
+					std::cout << "To shutdown server : enter --> \\shutdown"
+					"\nTo disconnect current client : enter --> \\disconnect"
+					"\nTo continue --> press any key\n>";
+					std::cin >> shutdown;
+					if(shutdown == "\\shutdown")
+					{
+						running = false;
+						isContinue = false;
+						return;
+					}
+					if(shutdown ==  "\\disconnect")
+					{
+						running = true;
+						isContinue = false;
+						std::cout << "> Client " << host << (" with SOCKET # ") << sock << " disconnect because of critical error" << '\n';
+						FD_CLR(sock, &master);
+						closesocket(sock);
+						std::cout << "Waiting other client for a connection" << '\n';
+						std::cout << "----------------------------------" << '\n';
+					}
+					else {
+						//continue
+						if (errGet == 0)
+						{
+							const auto isWorkContinue = handler.continueWork(sock);
+							//disconnect client
+							if (isWorkContinue == 1)
+							{
+								isContinue = false;
+								//closesocket(sock);
+								FD_CLR(sock, &master);
+								std::cout << "> Client " << host << (" with SOCKET # ") << sock << " disconnected" << '\n';
+								std::cout << "Waiting other client for a connection" << '\n';
+								std::cout << "----------------------------------" << '\n';
+							}
+							//client still working
+							else if (isWorkContinue == 0)
+							{
+								isContinue = true;
+								std::cout << "Client " << host << " continue working in server" << '\n';
+								std::cout << "--------------------------------------" << '\n';
+								//send request to get list of processes from client
+								if (!handler.isGetListProc(client))
+									std::cerr << "Error in sending request to get list of processes from client" << '\n';
+							}
+
+							running = true;
+						}
+					}
+
 				}
-				else if(errGet == -1)
-				{
-					
-				}
-				 
 			}
 		}
 	}
@@ -159,7 +218,7 @@ void WinServer::Run()
 
 }
 
-void WinServer::Cleanup()
+void CServer::Cleanup()
 {
 	const std::string msg = "Server is shutting down. Goodbye\r\n";
 	while (master.fd_count > 0)

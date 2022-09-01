@@ -8,10 +8,11 @@ public:
 	IServer(std::string ipAddress, int port); 
 	virtual ~IServer(); 
 	virtual bool Init() = 0;
-	virtual SOCKET CreateSocket() = 0;
+	virtual bool CreateSocket() = 0;
 	virtual SOCKET WaitForAConnection(SOCKET listening) = 0;
 	virtual void Run() = 0;
 	virtual void Cleanup() = 0;
+
 protected:
 	CError err;
 	Handler handler;

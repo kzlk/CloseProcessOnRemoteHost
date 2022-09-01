@@ -1,70 +1,80 @@
 #ifdef __linux__
 #include "CLinuxClient.h"
 
-CLinuxClient::CLinuxClient(const std::string& ipAddress, const int port) : IClient(ipAddress, port){}
+CClient::CClient(const std::string& ipAddress, const int port) : IClient(ipAddress, port){}
 
-CLinuxClient::~CLinuxClient()
+CClient::~CClient()
 {
 	Cleanup();
 }
 
-bool CLinuxClient::Init()
+bool CClient::Init()
 {
 
-	CreateSocket();
-	return true;
+	if (CreateSocket()) return true;
+	else return false;
 }
 
-void CLinuxClient::Run()
+void CClient::Run()
 {
 	isRepeat = true;
 
 	int choice{};
-	//TODO: exit from cycle
 
 	do
 	{
 		//handle receiving messages
 		auto response = handler.clientHandler(sock);
 
-		const auto handle = catchy.statusHandler(response);
-		if (handle == NULL)
-			std::cout << "\nDo you want to continue? " << '\n';
-		else
-			std::cout << "Something went wrong! Do you want to try again? " << '\n';
-		std::cout << "Enter -> 1 to continue\nEnter -> 2 to exit\n";
+		const auto handle = CError::statusHandler(response);
+
+		if (handle == NULL) std::cout << "\nDo you want to continue? " << '\n';
+		else if (handle == 1) { isRepeat = false; return; }
+		else std::cout << "Something went wrong! Do you want to try again? " << '\n';
 
 		while (choice != 1 && choice != 2)
 		{
+			std::cout << "Enter -> 1 to continue\nEnter -> 2 to exit\n";
 			std::cout << '>';
 			std::cin >> choice;
 
 			switch (choice)
 			{
 			case 1:
+
+				//send to server header "continue" for work
+				if (handler.iContinue(sock) == -1)
+				{
+					std::cerr << "Error! Can not to continue work with server" << '\n';
+					isRepeat = false;
+				}
 				isRepeat = true;
 				break;
+
 			case 2:
+
+				//disconnect from server
 				isRepeat = false;
-				handler.iDisconect(sock);
+				if (handler.iDisconect(sock) == -1)
+					std::cerr << "Error! Can not to disconnect from server correctly" << '\n';
 				break;
+
 			default: std::cout << "Incorrect input! Try again!"; break;
 			}
 
 		}
-
+		choice = 0;
 	} while (isRepeat);
 
 }
 
-void CLinuxClient::Cleanup()
+void CClient::Cleanup()
 {
 	close(sock);
 }
 
-void CLinuxClient::CreateSocket()
+bool CClient::CreateSocket()
 {
-
 	sock = socket(AF_INET, SOCK_STREAM, NULL);
 	if (sock != -1)
 	{
@@ -73,19 +83,25 @@ void CLinuxClient::CreateSocket()
 		sockaddr_in hint{};
 		hint.sin_family = AF_INET;
 		hint.sin_port = htons(port);
-		//hint.sin_addr.S_un.S_addr = INADDR_ANY;
 		inet_pton(AF_INET, m_ipAddress.c_str(), &hint.sin_addr);
 
 		//connect to server 
-
 		int connResult = connect(sock, (sockaddr*)&hint, sizeof(hint));
 
-		if (connResult == -1) throw std::runtime_error("Can't connect to server");
+		if (connResult == -1)
+		{
+			std::cerr << "Can't connect to server" << '\n';
+			return false;
+		}
 
 	}
-	else throw std::runtime_error("Cannot create a socket!");
+	else
+	{
+		std::cerr << "Cannot create a socket!" << '\n';
+		return false;
+	}
 
-
+	return true;
 }
 
 #endif

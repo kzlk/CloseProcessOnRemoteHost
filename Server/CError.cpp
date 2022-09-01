@@ -50,6 +50,11 @@ int CError::statusHandler(const E_CODE_MESSAGE& err)
 
 	case E_CODE_MESSAGE::E_STOP_SERVER:
 		return 1;
+	case E_CODE_MESSAGE::E_CONTINUE:
+		std::cerr << "header in continue method is not equal to \"continue\"" << '\n';
+		break;
+	case E_CODE_MESSAGE::E_GET_H_CONTINUE:
+
 	default: std::cerr << "Unknown status of process closing\n"; break; ;
 	}
 	return -1;

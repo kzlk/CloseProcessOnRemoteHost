@@ -1,23 +1,24 @@
 #include "CClientHandler.h"
 
-int CClientHandler::iDisconect(const SOCKET& sock)
+int CClientHandler::iContinue(const SOCKET& sock) const
+{
+	return send(sock, header.continueWork, MESSAGE_HEADER_SIZE, NULL);
+}
+
+int CClientHandler::iDisconect(const SOCKET& sock) const
 {
 	return send(sock, header.disconnect, MESSAGE_HEADER_SIZE, NULL);
 }
 
-//handle receiving message
-//TODO: exit from cycle
-//TODO: output name of process by received PID
+//handle receiving server header
 E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 {
-
 	int PID{};
 	int isSuccess = 0;
 	int isFailed = -1;
 	char headerBuf[MESSAGE_HEADER_SIZE]{};
     memset(headerBuf, 0, MESSAGE_HEADER_SIZE);
 
-	int msg_size;
 	while (true)
 	{
 		//receive header
@@ -60,17 +61,15 @@ E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 
 		}
 
+		//send to server running list of process
 		else if (strcmp(header.getListProc, headerBuf) == NULL)
 		{
 
 			serMap = proc->processNamePID();
 			if (serMap.empty()) { return msg::E_GET_WIN_PROC; }
 
-			//TODO: friendly user console interface
-
 			std::vector<char> byteStream = serMap.serialize();
-			//serializable_map<int, std::string> serMap2;
-			//serMap2.deserialize(byteStream);
+
 			int len = byteStream.size();
 
 			//send header list of processes
@@ -87,62 +86,9 @@ E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 				std::cout << "Serialized map --> " << len << " bytes sent" << '\n';
 				return msg::E_SEND_MAP;
 			}
-			/*
-			//enter PID or name of process
-			int choice{};
-			int enterPID{};
-			std::string enterName{};
-			std::cout << "How do you want to close the process?" << '\n';
-			std::cout << "1) By PID : enter -> 1 \n2) By name : enter -> 2\n3) Exit: enter -> 3\n";
-
-			while (choice != 2 && choice != 1)
-			{
-				std::cout << '>';
-				std::cin >> choice;
-				switch (choice)
-				{
-				case 1:
-					std::cout << "Please enter process' PID: ";
-					std::cout << '>';
-					std::cin >> enterPID;
-
-					//send header that we enter PID
-					if (send(sock, header.getPID, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
-						return msg::E_SEND_H_PID;
-
-					//send input PID
-					if (send(sock, (char*)&enterPID, sizeof(int), NULL) == E_RECV_SEND)
-						return msg::E_SEND_PID;
-					break;
-
-				case 2:
-					std::cout << "Please enter process' name : ";
-					std::cout << '>';
-					std::cin >> enterName;
-
-					//send header that we enter NAME
-					if (send(sock, header.getName, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
-						return msg::E_SEND_H_NAME;
-
-					//send input NAME
-					if (send(sock, enterName.c_str(), enterName.size() + 1, NULL) == E_RECV_SEND)
-						return msg::E_SEND_PID;
-					break;
-				default:
-					std::cout << "Wrong input! Please try again!\n Enter your choice ";
-					break;
-
-				case 3:
-					if (iDisconect(sock) == E_RECV_SEND) return msg::E_SEND_H_DISC;
-				}
-			}
-
-			//send header to select process
-			if (send(sock, header.selProc, MESSAGE_HEADER_SIZE, NULL) == E_RECV_SEND)
-				return msg::E_SEND_H_PID;
-				*/
 		}
 
+		//receive header to shutdown client app because server is stopping
 		else if(strcmp(header.closeServer, headerBuf) == NULL)
 		{
 		char buf[1000];
@@ -150,14 +96,9 @@ E_CODE_MESSAGE CClientHandler::clientHandler(const SOCKET& sock)
 		const int bytesReceived = recv(sock, buf, sizeof(buf), 0);
 		if (bytesReceived == E_RECV_SEND) return msg::E_RECV_EXIT;
 			std::cout << std::string(buf, 0, bytesReceived);
+			return msg::SHUTDOWN_CLIENT;
 		}
-
-		/*
-		 *
-		 */
-
 	}
-
 }
 
 int CClientHandler::sendall( int s, const std::vector<char>& buf, int* len)

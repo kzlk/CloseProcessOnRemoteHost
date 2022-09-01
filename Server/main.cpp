@@ -6,23 +6,20 @@
 
 int main()
 {
-#ifdef _WIN32
-	IServer* server = new WinServer("127.0.0.1", 54000);
-#elif defined (__linux__)
-	IServer* server = new LinuxServer("127.0.0.1", 54000);
-#endif
 
-	try
-	{
-		server->Init();
-		server->Run();
-	}
-	catch (std::runtime_error& err)
-	{
-		std::cout << err.what() << std::endl;
-	}
+	IServer* server = new CServer("127.0.0.1", 54000);
+
+	if (server->Init()) server->Run();
 
 	delete server;
+
+
+#ifdef __linux___
+	(void)getchar();
+#elif defined(_WIN32)
+	system("pause");
+#else
+#endif
 
 	return 0;
 

@@ -1,13 +1,14 @@
+#pragma once
 #ifdef _WIN32
 #pragma once
 #include "IClient.h"
 
 
-class CWinClient: public IClient
+class CClient: public IClient
 {
 public:
-	CWinClient(std::string ipAddress, int port);
-	~CWinClient() override;
+	CClient(std::string ipAddress, int port);
+	~CClient() override;
 	bool Init() override;
 	void Run() override;
 
@@ -15,6 +16,6 @@ private:
 
 	SOCKET sock{};
 	void Cleanup() override;
-	void CreateSocket() override;
+	bool CreateSocket() override;
 };
 #endif

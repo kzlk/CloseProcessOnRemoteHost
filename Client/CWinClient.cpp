@@ -3,80 +3,88 @@
 
 #include <utility>
 
-CWinClient::CWinClient(std::string ipAddress, const int port): IClient(std::move(ipAddress), port) {}
+CClient::CClient(std::string ipAddress, const int port): IClient(std::move(ipAddress), port) {}
 
-CWinClient::~CWinClient()
+CClient::~CClient()
 {
-	CWinClient::Cleanup();
+	CClient::Cleanup();
 }
 
-bool CWinClient::Init()
+bool CClient::Init()
 {
 	WSADATA wsData;
 	WORD ver = MAKEWORD(2, 2);
 	int wsOk = WSAStartup(ver, &wsData);
-	if (wsOk != NULL)
+	if (wsOk == NULL)
 	{
-		throw std::runtime_error("Can't Initialize WinSock! Quitting");
+		if (CreateSocket()) return true;
+		return false;
 	}
-
-	CreateSocket();
-
-	return true ;
+	std::cerr << "Cant initialize WinSockLibrary" << '\n';
+	return false;
 }
 
-void CWinClient::Run()
+//TODO: logic for do it in cycle
+void CClient::Run()
 {
-
-	 isRepeat = true;
-
-	  int choice{};
-	//TODO: exit from cycle
+	isRepeat = true;
+	int choice{};
 
 	do
 	{
 		//handle receiving messages
 		auto response = handler.clientHandler(sock);
 
-		const auto handle = catchy.statusHandler(response);
-		if (handle == NULL)
-			std::cout << "\nDo you want to continue? " << '\n';
-		else
-			std::cout << "Something went wrong! Do you want to try again? " << '\n';
-		std::cout << "Enter -> 1 to continue\nEnter -> 2 to exit\n";
+		const auto handle = CError::statusHandler(response);
+
+		if (handle == NULL) std::cout << "\nDo you want to continue? " << '\n';
+		else if (handle == 1) {isRepeat = false; return;}
+		else std::cout << "Something went wrong! Do you want to try again? " << '\n';
 
 		while (choice != 1 && choice != 2)
 		{
+			std::cout << "Enter -> 1 to continue\nEnter -> 2 to exit\n";
 			std::cout << '>';
 			std::cin >> choice;
 
 			switch (choice)
 			{
 			case 1:
-				//send to server header "continue"
+
+				//send to server header "continue" for work
+				if(handler.iContinue(sock) == -1)
+				{
+					std::cerr << "Error! Can not to continue work with server" << '\n';
+					isRepeat = false;
+				}
 				isRepeat = true;
 				break;
+
 			case 2:
+
+				//disconnect from server
 				isRepeat = false;
-				handler.iDisconect(sock);
+				if (handler.iDisconect(sock) == -1)
+					std::cerr << "Error! Can not to disconnect from server correctly" << '\n';
 				break;
+
 			default: std::cout << "Incorrect input! Try again!"; break;
 			}
 
 		}
-
+		choice = 0;
 	} while (isRepeat);
 
 
 }
 
-void CWinClient::Cleanup()
+void CClient::Cleanup()
 {
 	closesocket(sock);
 	WSACleanup();
 }
 
-void CWinClient::CreateSocket()
+bool CClient::CreateSocket()
 {
 	sock = socket(AF_INET, SOCK_STREAM, NULL);
 	if (sock != INVALID_SOCKET)
@@ -86,18 +94,24 @@ void CWinClient::CreateSocket()
 		sockaddr_in hint{};
 		hint.sin_family = AF_INET;
 		hint.sin_port = htons(port);
-		//hint.sin_addr.S_un.S_addr = INADDR_ANY;
 		inet_pton(AF_INET, m_ipAddress.c_str(), &hint.sin_addr);
 
 		//connect to server 
-
 		int connResult = connect(sock, (sockaddr*)&hint, sizeof(hint));
-
-		if (connResult == SOCKET_ERROR) throw std::runtime_error("Can't connect to server");
+		if (connResult == SOCKET_ERROR)
+		{
+			std::cerr << "Can't connect to server" << '\n';
+			return false;
+		} 
 
 	}
-	else throw std::runtime_error("Cannot create a socket!");
+	else
+	{
+		std::cerr << "Cannot create a socket!" << '\n';
+		return false;
+	}
 
+	return true;
 }
 
 #endif

@@ -6,10 +6,10 @@
 #pragma comment (lib, "ws2_32.lib")
 #include <tlhelp32.h> 
 #include <windows.h>
-#include <iostream>
 #include <string>
 #define ERROR_CLOSE 0
-class CWinProcess : public IProcess
+
+class CProcess : public IProcess
 {
 
 public:

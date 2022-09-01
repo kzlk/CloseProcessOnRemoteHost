@@ -18,7 +18,8 @@ enum class E_CODE_MESSAGE
 	E_SEND_H_DISC,
 	SUCCESS,
 	FAILURE,
-	E_RECV_EXIT
+	E_RECV_EXIT,
+	SHUTDOWN_CLIENT
 };
 
 typedef E_CODE_MESSAGE msg;
@@ -26,5 +27,5 @@ typedef E_CODE_MESSAGE msg;
 class CError
 {
 public:
-	int statusHandler(const E_CODE_MESSAGE& err);
+	static int statusHandler(const E_CODE_MESSAGE& err);
 };
